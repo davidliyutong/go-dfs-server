@@ -4,11 +4,17 @@ import (
 	"github.com/spf13/cobra"
 	"go-dfs-server/pkg/nameserver/config"
 	"log"
+	"os"
 	"time"
 )
 
 func MainLoop(cmd *cobra.Command, args []string) {
-	_, cfg, _ := config.Parse(cmd)
+	_, cfg, err := config.Parse(cmd)
+	if err != nil {
+		log.Println("failed to parse configuration", err)
+		os.Exit(1)
+
+	}
 	log.Println("port:", cfg.Network.Port)
 	log.Println("interface:", cfg.Network.Interface)
 

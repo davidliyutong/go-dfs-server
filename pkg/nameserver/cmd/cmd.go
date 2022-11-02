@@ -52,16 +52,16 @@ Otherwise init will output configuration file to $HOME/.config/go-dfs-server/nam
 }
 
 func getRootCmd() *cobra.Command {
-	rootCmd.AddCommand(serveCmd)
-	rootCmd.AddCommand(initCmd)
 
 	serveCmd.Flags().String("config", "", "default configuration path")
 	serveCmd.Flags().Int16P("port", "p", config.NameserverDefaultPort, "port that nameserver listen on")
 	serveCmd.Flags().StringP("interface", "i", config.NameserverDefaultInterface, "interface that nameserver listen on, default to 0.0.0.0")
 	serveCmd.Flags().String("volume", config.NameserverDefaultVolume, "default configuration path")
+	rootCmd.AddCommand(serveCmd)
 
 	initCmd.Flags().Bool("print", false, "print config to stdout")
 	initCmd.Flags().StringP("output", "o", config.NameserverDefaultConfig, "specify output directory")
+	rootCmd.AddCommand(initCmd)
 
 	return rootCmd
 }

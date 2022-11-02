@@ -115,19 +115,19 @@ func Parse(cmd *cobra.Command) (*viper.Viper, NameserverCfg, error) {
 	}
 	vipCfg.WatchConfig()
 
-	_ = viper.BindPFlag("network.port", cmd.Flags().Lookup("port"))
-	_ = viper.BindPFlag("network.interface", cmd.Flags().Lookup("interface"))
-	_ = viper.BindPFlag("volume", cmd.Flags().Lookup("volume"))
-	_ = viper.BindPFlag("auth.accessKey", cmd.Flags().Lookup("accessKey"))
-	_ = viper.BindPFlag("auth.secretKey", cmd.Flags().Lookup("secretKey"))
-
 	vipCfg.SetEnvPrefix("DFSAPP")
 	vipCfg.AutomaticEnv()
+
+	_ = vipCfg.BindPFlag("network.port", cmd.Flags().Lookup("port"))
+	_ = vipCfg.BindPFlag("network.interface", cmd.Flags().Lookup("interface"))
+	_ = vipCfg.BindPFlag("volume", cmd.Flags().Lookup("volume"))
+	_ = vipCfg.BindPFlag("auth.accessKey", cmd.Flags().Lookup("accessKey"))
+	_ = vipCfg.BindPFlag("auth.secretKey", cmd.Flags().Lookup("secretKey"))
 
 	// If a config file is found, read it in.
 	serverCfg := NameserverCfg{}
 	if err := vipCfg.ReadInConfig(); err == nil {
-		fmt.Println("using config file:", viper.ConfigFileUsed())
+		fmt.Println("using config file:", vipCfg.ConfigFileUsed())
 	} else {
 		return vipCfg, serverCfg, err
 	}

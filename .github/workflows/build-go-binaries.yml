@@ -1,0 +1,51 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: build-go-binaries
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+
+    - name: Build
+      run: |
+        mkdir build
+        go build -o ./build/go-dfs-nameserver ./cmd/nameserver/app.go
+        go build -o ./build/go-dfs-dataserver ./cmd/dataserver/app.go
+        go build -o ./build/go-dfs-client ./cmd/client/app.go
+        tar -czf go-dfs-server-amd64.tar.gz ./bulid
+    - name: Test
+      run: go test -v ./tests
+
+    - name: Upload
+      uses: actions/upload-artifact@v3.1.0
+      with: 
+        name: go-dfs-server-amd64
+        path: go-dfs-server-amd64.tar.gz
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        tag_name: ${{ github.ref }}
+        name: Release ${{ github.ref }}
+        body: TODO New Release.
+        draft: false
+        prerelease: false
+        files: |
+          go-dfs-server-amd64.tar.gz

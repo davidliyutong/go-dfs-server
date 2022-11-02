@@ -116,6 +116,8 @@ func Parse(cmd *cobra.Command) (*viper.Viper, NameserverCfg, error) {
 	vipCfg.WatchConfig()
 
 	vipCfg.SetEnvPrefix("DFSAPP")
+	_ = vipCfg.BindEnv("network.port", "DFSAPP_PORT")
+	_ = vipCfg.BindEnv("network.interface", "DFSAPP_INTERFACE")
 	vipCfg.AutomaticEnv()
 
 	_ = vipCfg.BindPFlag("network.port", cmd.Flags().Lookup("port"))

@@ -28,7 +28,7 @@ jobs:
         go build -o ./build/go-dfs-nameserver ./cmd/nameserver/app.go
         go build -o ./build/go-dfs-dataserver ./cmd/dataserver/app.go
         go build -o ./build/go-dfs-client ./cmd/client/app.go
-        tar -czf go-dfs-server-amd64.tar.gz ./bulid
+        tar -czf go-dfs-server-amd64.tar.gz ./build
     - name: Test
       run: go test -v ./tests
 

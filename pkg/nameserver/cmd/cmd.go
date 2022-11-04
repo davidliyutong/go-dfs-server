@@ -42,12 +42,13 @@ var initCmd = &cobra.Command{
 
 The configuration file can be used to launch the nameserver.
 If --print flag is present, the configuration will be printed to stdout.
-If '--output / -o flag is present, the configuration will be saved to the path specified
+If --output / -o flag is present, the configuration will be saved to the path specified
 Otherwise init will output configuration file to $HOME/.config/go-dfs-server/nameserver.yaml
+If --yes / -y flag is present, the configuration will be overwrite without confirmation
 `,
 	Example: `  go-dfs-nameserver init --print
   go-dfs-nameserver init --output /path/to/nameserver.yaml
-  go-dfs-nameserver init -o /path/to/nameserver.yaml`,
+  go-dfs-nameserver init -o /path/to/nameserver.yaml -y`,
 	Run: config.NameserverInit,
 }
 
@@ -65,6 +66,7 @@ func getRootCmd() *cobra.Command {
 	rootCmd.AddCommand(serveCmd)
 
 	initCmd.Flags().Bool("print", false, "print config to stdout")
+	initCmd.Flags().BoolP("yes", "y", false, "overwrite")
 	initCmd.Flags().StringP("output", "o", config.NameserverDefaultConfig, "specify output directory")
 	rootCmd.AddCommand(initCmd)
 

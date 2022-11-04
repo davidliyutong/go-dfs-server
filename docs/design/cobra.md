@@ -78,6 +78,7 @@ Otherwise init will output configuration file to $HOME/.config/go-dfs-server/nam
 - `go-dfs-nameserver init --output ./config.yaml` 将默认配置输出到文件，`--output`可以简化为`-o`
 - `go-dfs-nameserver serve` 从默认的目录读取配置文件
 - `go-dfs-nameserver serve --config /path/to/config` 从给定的目录读取配置文件
+- 添加`-y`参数来强制覆盖配置文件
 
 注意到，上述的代码块没有注册设置对命令行参数的解析，也没有将`initCmd`、`serveCmd`和`rootCmd`建立联系：我们通常使用一个独立的函数来将他们组织起来。
 

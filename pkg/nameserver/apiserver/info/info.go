@@ -1,4 +1,4 @@
-package heartbeat
+package info
 
 import (
 	jwt "github.com/appleboy/gin-jwt/v2"
@@ -25,6 +25,7 @@ type controller struct {
 }
 
 type repo interface {
+	InfoQuery()
 }
 
 func NewController(repo repo) Controller {

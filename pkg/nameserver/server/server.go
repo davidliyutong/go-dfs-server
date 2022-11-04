@@ -7,4 +7,4 @@ var GlobalServerOpt *config.NameserverOpt
 const NameserverLoginPath = "/auth/login/"
 const NameserverTokenRefreshPath = "/auth/refresh"
 const NameserverPingPath = "/ping"
-const NameserverHeartBeatPath = "/heartbeat"
+const NameserverInfoPath = "/info"

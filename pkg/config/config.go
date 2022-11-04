@@ -77,7 +77,7 @@ type DataserverOpt struct {
 }
 
 func GetNameserverOpt() NameserverOpt {
-	accessKey, secretKey := utils.GenerateAuthKeysNoFail()
+	accessKey, secretKey := utils.MustGenerateAuthKeys()
 
 	return NameserverOpt{
 		Role: NameserverRole,
@@ -124,7 +124,7 @@ func GetDataserverOpt() DataserverOpt {
 
 }
 
-func dumpServerOption(opt interface{}, outputPath string) {
+func dumpServerOption(opt interface{}, outputPath string, overwrite bool) {
 	buffer, _ := yaml.Marshal(opt)
 
 	parentPath := path.Dir(outputPath)
@@ -135,16 +135,18 @@ func dumpServerOption(opt interface{}, outputPath string) {
 		}
 	}
 
-	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		ret := utils2.AskForConfirmationDefaultYes("configuration " + outputPath + " already exist, overwrite?")
-		if !ret {
-			log.Infoln("abort")
-			return
+	if !overwrite {
+		if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+			ret := utils2.AskForConfirmationDefaultYes("configuration " + outputPath + " already exist, overwrite?")
+			if !ret {
+				log.Infoln("abort")
+				return
+			}
 		}
 	}
 
 	log.Infoln("writing default configuration to", outputPath)
-	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR, 0644)
+	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	defer func() { _ = f.Close() }()
 	if err != nil {
 		panic("cannot open " + outputPath + ", check permissions")
@@ -163,6 +165,7 @@ func dumpServerOption(opt interface{}, outputPath string) {
 func NameserverInit(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
+	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
 	cfg := GetNameserverOpt()
 	configBuffer, _ := yaml.Marshal(cfg)
@@ -170,13 +173,14 @@ func NameserverInit(cmd *cobra.Command, args []string) {
 	if printFlag {
 		fmt.Println(string(configBuffer))
 	} else {
-		dumpServerOption(cfg, outputPath)
+		dumpServerOption(cfg, outputPath, overwriteFlag)
 	}
 }
 
 func DataserverInit(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
+	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
 	cfg := GetDataserverOpt()
 	configBuffer, _ := yaml.Marshal(cfg)
@@ -184,7 +188,7 @@ func DataserverInit(cmd *cobra.Command, args []string) {
 	if printFlag {
 		fmt.Println(string(configBuffer))
 	} else {
-		dumpServerOption(cfg, outputPath)
+		dumpServerOption(cfg, outputPath, overwriteFlag)
 	}
 }
 

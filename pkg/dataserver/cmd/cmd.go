@@ -44,10 +44,11 @@ The configuration file can be used to launch the dataserver.
 If --print flag is present, the configuration will be printed to stdout.
 If '--output / -o flag is present, the configuration will be saved to the path specified
 Otherwise init will output configuration file to $HOME/.config/go-dfs-server/dataserver.yaml
+If --yes / -y flag is present, the configuration will be overwrite without confirmation
 `,
 	Example: `  go-dfs-dataserver init --print
   go-dfs-dataserver init --output /path/to/dataserver.yaml
-  go-dfs-dataserver init -o /path/to/dataserver.yaml`,
+  go-dfs-dataserver init -o /path/to/dataserver.yaml -y`,
 	Run: config.DataserverInit,
 }
 
@@ -66,6 +67,8 @@ func getRootCmd() *cobra.Command {
 
 	initCmd.Flags().Bool("print", false, "print config to stdout")
 	initCmd.Flags().StringP("output", "o", config.DataserverDefaultConfig, "specify output directory")
+	initCmd.Flags().BoolP("yes", "y", false, "print config to stdout")
+
 	rootCmd.AddCommand(initCmd)
 
 	return rootCmd

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"go-dfs-server/pkg/auth"
 	"go-dfs-server/pkg/config"
-	"go-dfs-server/pkg/nameserver/apiserver/heartbeat"
+	"go-dfs-server/pkg/nameserver/apiserver/info"
 	"go-dfs-server/pkg/nameserver/apiserver/ping"
 	"go-dfs-server/pkg/nameserver/server"
 	"os"
@@ -37,9 +37,9 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	pingController := ping.NewController(nil)
 	pingGroup.GET("/", pingController.Get)
 
-	heartbeatAuthGroup, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.NameserverHeartBeatPath)
-	heartbeatController := heartbeat.NewController(nil)
-	heartbeatAuthGroup.GET("/", heartbeatController.Get)
+	infoAuthGroup, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.NameserverInfoPath)
+	infoController := info.NewController(nil)
+	infoAuthGroup.GET("/", infoController.Get)
 
 	_ = ginEngine.Run(server.GlobalServerOpt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerOpt.Network.Port))
 

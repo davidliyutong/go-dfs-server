@@ -36,6 +36,8 @@ client use `local:` and `remote:` prefix to decide if path is remote path (on th
 | `read`  | path offset size output |                 | `--offset=0x0` `--size=1` `--output=/path/to/output`   |                                                        |
 | `write` | path offset size output |                 | `--offset=0x0`` --size=1` `--output=/path/to/output`   |                                                        |
 | `open`  | -                       | \[path\]        |                                                        | open a file with an interactive prompt **interactive** |
+                                   
+### Interactive Prompt
 
 | Name      | Argument (SDK)  | Argument (CLI)                                   | Functional        |
 |-----------|-----------------|--------------------------------------------------|-------------------|

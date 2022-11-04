@@ -112,7 +112,7 @@ type DFSClusterInfo struct {
 func (o *ClientOpt) Info() (DFSClusterInfo, error) {
 	client := &http.Client{}
 
-	request, err := http.NewRequest("GET", o.GetHTTPUrl()+server.NameserverAPIPrefix+server.NameserverInfoPath, nil)
+	request, err := http.NewRequest("GET", o.GetHTTPUrl()+server.APILayout.V1.Info, nil)
 	if err != nil {
 		return DFSClusterInfo{}, err
 	}
@@ -182,7 +182,7 @@ func (o *ClientOpt) BindAuthentication(cmd *cobra.Command) error {
 		}
 		credentialsBytes, _ := json.Marshal(credentials)
 
-		respHandle, err := http.Post(o.GetHTTPUrl()+server.NameserverLoginPath, "application/json", bytes.NewBuffer(credentialsBytes))
+		respHandle, err := http.Post(o.GetHTTPUrl()+server.APILayout.Auth.Login, "application/json", bytes.NewBuffer(credentialsBytes))
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (o *ClientOpt) MustBindAuthentication(cmd *cobra.Command) {
 func (o *ClientOpt) Refresh() error {
 	client := &http.Client{}
 
-	request, err := http.NewRequest("POST", o.GetHTTPUrl()+server.NameserverTokenRefreshPath, nil)
+	request, err := http.NewRequest("POST", o.GetHTTPUrl()+server.APILayout.Auth.Refresh, nil)
 	if err != nil {
 		return err
 	}

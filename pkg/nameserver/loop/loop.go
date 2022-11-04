@@ -31,15 +31,15 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	log.Debugln("secretKey:", opt.Auth.SecretKey)
 
 	ginEngine := gin.New()
-	ginJWT, _ := auth.RegisterAuthModule(ginEngine, server.NameserverLoginPath, server.NameserverTokenRefreshPath, time.Second*86400, auth.RepoAuthnBasic, auth.RepoAuthzBasic)
+	ginJWT, _ := auth.RegisterAuthModule(ginEngine, server.APILayout.Auth.Login, server.APILayout.Auth.Refresh, time.Second*86400, auth.RepoAuthnBasic, auth.RepoAuthzBasic)
 
-	pingGroup := ginEngine.Group(server.NameserverPingPath)
+	pingGroup := ginEngine.Group(server.APILayout.Ping)
 	pingController := ping.NewController(nil)
 	pingGroup.GET("/", pingController.Get)
 
-	v1, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.NameserverAPIPrefix)
+	v1, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.APILayout.V1.Self)
 	infoController := info.NewController(nil)
-	v1.GET(server.NameserverInfoPath, infoController.Get)
+	v1.GET(server.APILayout.V1.Info, infoController.Get)
 
 	_ = ginEngine.Run(server.GlobalServerOpt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerOpt.Network.Port))
 

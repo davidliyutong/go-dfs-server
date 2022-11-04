@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	client "go-dfs-server/pkg/client"
 	"go-dfs-server/pkg/client/login"
+	"os"
 )
 
 var rootCmd = &cobra.Command{
@@ -82,10 +83,10 @@ func getRootCmd() *cobra.Command {
 func Execute() {
 	rootCmd := getRootCmd()
 	verboseFlag, _ := rootCmd.PersistentFlags().GetBool("verbose")
+	verboseFlag = verboseFlag || os.Getenv("DFSAPP_VERBOSE") != ""
 	if verboseFlag {
 		log.SetLevel(log.DebugLevel)
 	}
-
 	if err := rootCmd.Execute(); err != nil {
 		panic(err)
 	}

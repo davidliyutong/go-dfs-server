@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"os"
 	"path"
+	"time"
 )
 
 const ClusterDefaultDomain = "dfs.local"
@@ -18,8 +19,10 @@ const ServerDefaultConfigSearchPath1 = "./"
 
 var userHomeDir, _ = os.UserHomeDir()
 var ServerDefaultConfigSearchPath2 = path.Join(userHomeDir, ".config/go-dfs-server")
+var ClientDefaultConfigSearchPath2 = path.Join(userHomeDir, ".config/go-dfs-server")
 var NameserverDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+NameserverDefaultConfigName+".yaml")
 var DataserverDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+DataserverDefaultConfigName+".yaml")
+var ClientDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+ClientDefaultConfigName+".yaml")
 
 const NameserverDefaultConfigName = "nameserver"
 const NameserverDefaultPort = 27903
@@ -34,6 +37,10 @@ type SeverRoleType string
 
 const NameserverRole = "nameserver"
 const DataserverRole = "dataserver"
+
+const ClientDefaultConfigName = "client"
+const ClientDefaultConfigSearchPath0 = "/etc/go-dfs-server"
+const ClientDefaultConfigSearchPath1 = "./"
 
 type NameserverNetworkOpt struct {
 	Port      int
@@ -66,6 +73,10 @@ type NameserverOpt struct {
 	Log     LogOpt
 }
 
+func (o *NameserverOpt) AuthIsEnabled() bool {
+	return o.Auth.AccessKey != "" && o.Auth.SecretKey != ""
+}
+
 type DataserverOpt struct {
 	Role    SeverRoleType
 	Network DataserverNetworkOpt
@@ -73,6 +84,27 @@ type DataserverOpt struct {
 	Auth    AuthOpt
 	Debug   bool
 	Log     LogOpt
+}
+
+type ClientOpt struct {
+	AccessKey    string
+	SecretKey    string
+	Authenticate bool
+	Token        string
+	Expire       time.Time
+	Address      string
+	Port         int16
+	UseTLS       bool
+}
+
+func (o *ClientOpt) GetHTTPUrl() string {
+	if o.UseTLS {
+		s := fmt.Sprintf("%s://%s:%d", "https", o.Address, o.Port)
+		return s
+	} else {
+		s := fmt.Sprintf("%s://%s:%d", "http", o.Address, o.Port)
+		return s
+	}
 }
 
 func GetNameserverOpt() NameserverOpt {
@@ -121,6 +153,10 @@ func GetDataserverOpt() DataserverOpt {
 		},
 	}
 
+}
+
+func GetClientOpt() ClientOpt {
+	return ClientOpt{}
 }
 
 func NameserverInit(cmd *cobra.Command, args []string) {
@@ -268,6 +304,43 @@ func (o *DataserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 
 	if err := vipCfg.Unmarshal(o); err != nil {
 		log.Panicln("failed to unmarshal config")
+	}
+
+	return vipCfg, nil
+}
+
+func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
+	vipCfg := viper.New()
+	vipCfg.SetDefault("_config", ClientDefaultConfig)
+
+	if configFileCmd, err := cmd.Flags().GetString("config"); err == nil && configFileCmd != "" {
+		vipCfg.SetConfigFile(configFileCmd)
+		vipCfg.Set("_config", configFileCmd)
+	} else {
+		configFileEnv := os.Getenv("DFSAPP_CONFIG")
+		if configFileEnv != "" {
+			vipCfg.SetConfigFile(configFileEnv)
+			vipCfg.Set("_config", configFileEnv)
+		} else {
+			vipCfg.SetConfigName(ClientDefaultConfigName)
+			vipCfg.SetConfigType("yaml")
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath0)
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath1)
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath2)
+		}
+	}
+	if err := vipCfg.ReadInConfig(); err == nil {
+		log.Debugln("using config file:", vipCfg.ConfigFileUsed())
+		vipCfg.Set("_config", vipCfg.ConfigFileUsed())
+
+	} else {
+		log.Info(err)
+		return vipCfg, err
+	}
+
+	if err := vipCfg.Unmarshal(o); err != nil {
+		log.Errorln("failed to unmarshal config", vipCfg.ConfigFileUsed())
+		os.Exit(1)
 	}
 
 	return vipCfg, nil

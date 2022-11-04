@@ -19,25 +19,45 @@
 
 
 
+## client basics
+
+| config file | environment      | command line      | default and example values                    |
+|-------------|------------------|-------------------|-----------------------------------------------|
+| `-`         | `DFSAPP_CONFIG`  | `--config`        | Path to client config, **no default value**   |
+| `-`         | `DFSAPP_VERBOSE` | `--verbose`, `-v` | Toggle verbose output                         |
+
+
 ##  client commands
                                                            
 client use `local:` and `remote:` prefix to decide if path is remote path (on the DFS cluster) or local path. A path is assumed to be remote path if no prefix is provided.
 
-| Name    | Argument(SDK)           | Argument (CLI)  | Options                                                | Functional                                             |
-|---------|-------------------------|-----------------|--------------------------------------------------------|--------------------------------------------------------|
-| `ls`    | path                    | \[path\]        |                                                        |                                                        |
-| `cat`   | path                    | \[path\]        |                                                        |                                                        |
-| `mkdir` | path                    | \[path\]        |                                                        |                                                        |
-| `rmdir` | path                    | \[path\]        |                                                        |                                                        |
-| `touch` | path                    | \[path\]        |                                                        |                                                        |
-| `rm`    | path recursive          | \[path\]        | `-r`                                                   |                                                        |
-| `cp`    | src dst                 | \[src\] \[dst\] |                                                        |                                                        |
-| `mv`    | src dst                 | \[src\] \[dst\] |                                                        |                                                        |
-| `read`  | path offset size output |                 | `--offset=0x0` `--size=1` `--output=/path/to/output`   |                                                        |
-| `write` | path offset size output |                 | `--offset=0x0`` --size=1` `--output=/path/to/output`   |                                                        |
-| `open`  | -                       | \[path\]        |                                                        | open a file with an interactive prompt **interactive** |
+### Authentication
+
+| Name     | Argument(SDK)           | Argument (CLI)  | Options                                              | Functional                                             |
+|----------|-------------------------|-----------------|------------------------------------------------------|--------------------------------------------------------|
+| `login`  | -                       | -               | `--accessKey=12345678` `--secretKey=xxxxxxxx`        |                                                        |
+| `logout` | -                       | -               |                                                      |                                                        |
+
+### Maneuver
+
+| Name     | Argument(SDK)           | Argument (CLI)  | Options                                              | Functional                                             |
+|----------|-------------------------|-----------------|------------------------------------------------------|--------------------------------------------------------|
+| `info`   | -                       | -               |                                                      |                                                        |
+| `ls`     | path                    | \[path\]        |                                                      |                                                        |
+| `cat`    | path                    | \[path\]        |                                                      |                                                        |
+| `mkdir`  | path                    | \[path\]        |                                                      |                                                        |
+| `rmdir`  | path                    | \[path\]        |                                                      |                                                        |
+| `touch`  | path                    | \[path\]        |                                                      |                                                        |
+| `rm`     | path recursive          | \[path\]        | `-r`                                                 |                                                        |
+| `cp`     | src dst                 | \[src\] \[dst\] |                                                      |                                                        |
+| `mv`     | src dst                 | \[src\] \[dst\] |                                                      |                                                        |
+| `read`   | path offset size output |                 | `--offset=0x0` `--size=1` `--output=/path/to/output` |                                                        |
+| `write`  | path offset size output |                 | `--offset=0x0`` --size=1` `--output=/path/to/output` |                                                        |
+| `open`   | -                       | \[path\]        |                                                      | open a file with an interactive prompt **interactive** |
                                    
 ### Interactive Prompt
+
+The client can open an interactive prompt
 
 | Name      | Argument (SDK)  | Argument (CLI)                                   | Functional        |
 |-----------|-----------------|--------------------------------------------------|-------------------|

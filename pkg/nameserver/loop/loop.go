@@ -10,6 +10,7 @@ import (
 	"go-dfs-server/pkg/nameserver/apiserver/ping"
 	"go-dfs-server/pkg/nameserver/server"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -33,13 +34,24 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	ginEngine := gin.New()
 	ginJWT, _ := auth.RegisterAuthModule(ginEngine, server.APILayout.Auth.Login, server.APILayout.Auth.Refresh, time.Second*86400, auth.RepoAuthnBasic, auth.RepoAuthzBasic)
 
+	var v1API *gin.RouterGroup
+	var infoAPI *gin.RouterGroup
+	if server.GlobalServerOpt.AuthIsEnabled() {
+		v1API, _ = auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.APILayout.V1.Self)
+		infoAPI, _ = auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.APILayout.Info)
+	} else {
+		v1API = ginEngine.Group(server.APILayout.V1.Self)
+		infoAPI = ginEngine.Group(server.APILayout.Info)
+	}
+
 	pingGroup := ginEngine.Group(server.APILayout.Ping)
 	pingController := ping.NewController(nil)
-	pingGroup.GET("/", pingController.Get)
-
-	v1, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.APILayout.V1.Self)
+	pingGroup.GET("", pingController.Get)
 	infoController := info.NewController(nil)
-	v1.GET(server.APILayout.V1.Info, infoController.Get)
+	infoPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Info)
+
+	v1API.GET(infoPath, infoController.Get)
+	infoAPI.GET("", infoController.Get)
 
 	_ = ginEngine.Run(server.GlobalServerOpt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerOpt.Network.Port))
 

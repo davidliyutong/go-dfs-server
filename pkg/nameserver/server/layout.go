@@ -21,6 +21,7 @@ type NameserverLayoutRoot struct {
 	Self string
 	Auth NameserverLayoutAuth
 	Ping string
+	Info string
 	V1   NameserverLayoutV1
 }
 
@@ -32,6 +33,7 @@ var APILayout = NameserverLayoutRoot{
 		Refresh: "/auth/refresh",
 	},
 	Ping: "/ping",
+	Info: "/info",
 	V1: NameserverLayoutV1{
 		Self: "/v1",
 		Info: "/v1/info",

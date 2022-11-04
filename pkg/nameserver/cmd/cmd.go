@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"go-dfs-server/pkg/nameserver"
-	"go-dfs-server/pkg/nameserver/config"
+	"go-dfs-server/pkg/config"
+	"go-dfs-server/pkg/nameserver/loop"
 )
 
 var rootCmd = &cobra.Command{
@@ -29,7 +29,7 @@ The parameters in the configuration file will be overwritten by the following or
 1. command line arguments
 2. environment variables
 `,
-	Run: nameserver.MainLoop,
+	Run: loop.MainLoop,
 }
 
 var initCmd = &cobra.Command{
@@ -48,7 +48,7 @@ Otherwise init will output configuration file to $HOME/.config/go-dfs-server/nam
 	Example: `  go-dfs-nameserver init --print
   go-dfs-nameserver init --output /path/to/nameserver.yaml
   go-dfs-nameserver init -o /path/to/nameserver.yaml`,
-	Run: config.Init,
+	Run: config.NameserverInit,
 }
 
 func getRootCmd() *cobra.Command {
@@ -57,6 +57,11 @@ func getRootCmd() *cobra.Command {
 	serveCmd.Flags().Int16P("port", "p", config.NameserverDefaultPort, "port that nameserver listen on")
 	serveCmd.Flags().StringP("interface", "i", config.NameserverDefaultInterface, "interface that nameserver listen on, default to 0.0.0.0")
 	serveCmd.Flags().String("volume", config.NameserverDefaultVolume, "default configuration path")
+	serveCmd.Flags().String("domain", config.ClusterDefaultDomain, "domain of DFS cluster, default to dfs.local")
+
+	serveCmd.Flags().String("accessKey", "", "server access key")
+	serveCmd.Flags().String("secretKey", "", "server secret key")
+	serveCmd.Flags().Bool("debug", false, "toggle debug logging")
 	rootCmd.AddCommand(serveCmd)
 
 	initCmd.Flags().Bool("print", false, "print config to stdout")

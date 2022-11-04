@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	client "go-dfs-server/pkg/client"
+	"go-dfs-server/pkg/client/login"
 )
 
 var rootCmd = &cobra.Command{
@@ -12,21 +14,56 @@ var rootCmd = &cobra.Command{
 	Run:   client.MainLoop,
 }
 
-var authCmd = &cobra.Command{
-	Use: "auth",
-	Short: `auth connects client to dfs nameserver and store connection configuration.
-If --print flag is present, the auth information will be printed to stdout.
-If '--output / -o flag is present, the auth information will be saved to the path specified
-Otherwise init will output configuration file to $HOME/.config/go-dfs-server/auth.yaml
+var loginCmd = &cobra.Command{
+	Use: "login",
+	Short: `login connects client to dfs nameserver and store connection configuration.
 `,
-	Example: `  go-dfs-client auth --print
-  go-dfs-client init --output /path/to/auth.yaml
-  go-dfs-client init -o /path/to/auth.yaml`,
-	Run: client.Authenticate,
+	Example: `  go-dfs-client login dfs://127.0.0.1
+  go-dfs-client login dfs://127.0.0.1 --accessKey=12345678 --secretKey=xxxxxxxx
+  go-dfs-client login dfs://127.0.0.1:27903 --accessKey=12345678 --secretKey=xxxxxxxx`,
+	Args: cobra.ExactArgs(1),
+	Run:  login.Login,
+}
+
+var logoutCmd = &cobra.Command{
+	Use: "logout",
+	Short: `logout clears server credentials.
+`,
+	Args: cobra.ExactArgs(0),
+	Run:  login.Login,
+}
+
+var lsCmd = &cobra.Command{
+	Use:     "ls",
+	Short:   `list a directory`,
+	Args:    cobra.ExactArgs(1),
+	Example: `  go-dfs-client ls /`,
+	Run: func(cmd *cobra.Command, args []string) {
+		path := args[0]
+		fmt.Printf("exec ls %s", path)
+	},
+}
+
+var catCmd = &cobra.Command{
+	Use:     "ls",
+	Short:   `list a directory`,
+	Args:    cobra.ExactArgs(1),
+	Example: `  go-dfs-client ls /`,
+	Run: func(cmd *cobra.Command, args []string) {
+		path := args[0]
+		fmt.Printf("exec ls %s", path)
+	},
 }
 
 func getRootCmd() *cobra.Command {
-	rootCmd.AddCommand(authCmd)
+	loginCmd.Flags().String("accessKey", "", "server access key")
+	loginCmd.Flags().String("secretKey", "", "server secret key")
+	rootCmd.AddCommand(loginCmd)
+
+	rootCmd.AddCommand(logoutCmd)
+
+	rootCmd.AddCommand(lsCmd)
+
 	return rootCmd
 }
 

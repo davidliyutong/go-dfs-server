@@ -1,10 +1,10 @@
 package client
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 func MainLoop(cmd *cobra.Command, args []string) {
-	log.Println("client main loop")
+	log.Debugln("client main loop")
 }

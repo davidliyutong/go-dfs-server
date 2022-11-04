@@ -5,7 +5,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	client "go-dfs-server/pkg/client"
-	"go-dfs-server/pkg/client/login"
 	"os"
 )
 
@@ -31,7 +30,7 @@ The token obtained from server will be stored in /path/to/config, which is ~/.co
   go-dfs-client login dfs://127.0.0.1 --accessKey=12345678 --secretKey=xxxxxxxx
   go-dfs-client login dfs://127.0.0.1:27903 --accessKey=12345678 --secretKey=xxxxxxxx`,
 	Args: cobra.MaximumNArgs(1),
-	Run:  login.Login,
+	Run:  client.Login,
 }
 
 var logoutCmd = &cobra.Command{
@@ -39,7 +38,7 @@ var logoutCmd = &cobra.Command{
 	Short: `logout clears server credentials.
 `,
 	Args: cobra.ExactArgs(0),
-	Run:  login.Login,
+	Run:  client.Logout,
 }
 
 var lsCmd = &cobra.Command{
@@ -76,6 +75,8 @@ func getRootCmd() *cobra.Command {
 	rootCmd.AddCommand(logoutCmd)
 
 	rootCmd.AddCommand(lsCmd)
+
+	rootCmd.AddCommand(catCmd)
 
 	return rootCmd
 }

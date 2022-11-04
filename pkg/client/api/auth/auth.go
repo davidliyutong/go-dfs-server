@@ -23,11 +23,11 @@ type AuthClusterInfo struct {
 	Message   string `json:"message"`
 }
 
-func (o *Client) AuthLogin() error {
+func (o *Client) AuthLogin(a *config.ClientAuthOpt) error {
 
 	credentials := auth.LoginCredential{
-		AccessKey: o.AccessKey,
-		SecretKey: o.SecretKey,
+		AccessKey: a.AccessKey,
+		SecretKey: a.SecretKey,
 	}
 	credentialsBytes, _ := json.Marshal(credentials)
 
@@ -61,11 +61,11 @@ func (o *Client) AuthLogin() error {
 		o.Token = response.Token
 		o.Expire = response.Expire
 	} else {
-		return errors.New("login failed, access denied")
+		return errors.New("login failed, access denied, try logout then login")
 	}
 
 	infoClient := info.Client{ClientOpt: o.ClientOpt}
-	_, err = infoClient.Info()
+	_, err = infoClient.Info(a)
 	if err != nil {
 		return err
 	}
@@ -73,8 +73,8 @@ func (o *Client) AuthLogin() error {
 	return nil
 }
 
-func (o *Client) MustAuthLogin() {
-	err := o.AuthLogin()
+func (o *Client) MustAuthLogin(a *config.ClientAuthOpt) {
+	err := o.AuthLogin(a)
 	if err != nil {
 		log.Errorln(err)
 		os.Exit(1)
@@ -121,7 +121,7 @@ func (o *Client) AuthRefresh() error {
 		o.Token = response.Token
 		o.Expire = response.Expire
 	} else {
-		return errors.New("login failed, access denied")
+		return errors.New("login failed, access denied, try logout then login")
 	}
 
 	return nil

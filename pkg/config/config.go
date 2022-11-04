@@ -87,14 +87,22 @@ type DataserverOpt struct {
 }
 
 type ClientOpt struct {
-	AccessKey    string
-	SecretKey    string
-	Authenticate bool
-	Token        string
-	Expire       time.Time
-	Address      string
-	Port         int16
-	UseTLS       bool
+	Token   string
+	Expire  time.Time
+	Address string
+	Port    int16
+	UseTLS  bool
+}
+
+type ClientAuthOpt struct {
+	AccessKey string
+	SecretKey string
+	Token     string
+	Expire    time.Time
+}
+
+func (o *ClientAuthOpt) AuthIsEnabled() bool {
+	return o.Token != ""
 }
 
 func (o *ClientOpt) GetHTTPUrl() string {
@@ -157,6 +165,10 @@ func GetDataserverOpt() DataserverOpt {
 
 func GetClientOpt() ClientOpt {
 	return ClientOpt{}
+}
+
+func GetClientAuthOpt() ClientAuthOpt {
+	return ClientAuthOpt{}
 }
 
 func NameserverInit(cmd *cobra.Command, args []string) {

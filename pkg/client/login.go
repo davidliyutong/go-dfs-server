@@ -1,4 +1,4 @@
-package login
+package client
 
 import (
 	log "github.com/sirupsen/logrus"
@@ -13,6 +13,7 @@ func Login(cmd *cobra.Command, args []string) {
 	log.Debugln("client auth")
 
 	opt := config.GetClientOpt()
+	authOpt := config.GetClientAuthOpt()
 	vipCfg, err := opt.Parse(cmd)
 	if err != nil {
 		if len(args) <= 0 {
@@ -20,20 +21,25 @@ func Login(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		opt.MustBindURL(args[0])
-		opt.MustBindAuthentication(cmd)
+		authOpt.MustBindAuthentication(cmd)
 		dfsClient := auth.Client{ClientOpt: &opt}
-		dfsClient.MustAuthLogin()
+		dfsClient.MustAuthLogin(&authOpt)
 		log.Println("login success")
 	} else {
 		log.Debugln("%s", opt)
 		if len(args) > 0 {
 			opt.MustBindURL(args[0])
-			opt.MustBindAuthentication(cmd)
+			authOpt.MustBindAuthentication(cmd)
 		}
 		dfsClient := auth.Client{ClientOpt: &opt}
 		err = dfsClient.AuthRefresh()
 		if err != nil {
-			dfsClient.MustAuthLogin()
+			err = dfsClient.AuthLogin(&authOpt)
+			if err != nil {
+				authOpt.MustBindAuthentication(nil)
+				dfsClient.MustAuthLogin(&authOpt)
+				log.Println("login success")
+			}
 		}
 		log.Println("renew token success")
 	}

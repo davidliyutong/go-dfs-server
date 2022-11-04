@@ -19,7 +19,7 @@ type ClusterInfo struct {
 	Message   string `json:"message"`
 }
 
-func (o *Client) Info() (ClusterInfo, error) {
+func (o *Client) Info(a *config.ClientAuthOpt) (ClusterInfo, error) {
 	client := &http.Client{}
 
 	request, err := http.NewRequest("GET", o.GetHTTPUrl()+server.APILayout.Info, nil)
@@ -27,7 +27,7 @@ func (o *Client) Info() (ClusterInfo, error) {
 		return ClusterInfo{}, err
 	}
 
-	if o.Authenticate {
+	if a.AuthIsEnabled() {
 		request.Header.Add("Authorization", "Bearer "+o.Token)
 	}
 	request.Header.Add("Content-Type", "application/json")

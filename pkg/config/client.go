@@ -69,9 +69,16 @@ func (o *ClientOpt) MustBindURL(url string) {
 	}
 }
 
-func (o *ClientOpt) BindAuthentication(cmd *cobra.Command) error {
-	accessKey, _ := cmd.Flags().GetString("accessKey")
-	secretKey, _ := cmd.Flags().GetString("secretKey")
+func (o *ClientAuthOpt) BindAuthentication(cmd *cobra.Command) error {
+	var accessKey, secretKey string
+	if cmd != nil {
+		accessKey, _ = cmd.Flags().GetString("accessKey")
+		secretKey, _ = cmd.Flags().GetString("secretKey")
+	} else {
+		accessKey = ""
+		secretKey = ""
+	}
+
 	if accessKey == "" {
 		fmt.Printf("Input accessKey:")
 		_, err := fmt.Scanf("%s", &accessKey)
@@ -88,23 +95,23 @@ func (o *ClientOpt) BindAuthentication(cmd *cobra.Command) error {
 	}
 	log.Debugf("accesskey: %s, secretKey: %s", accessKey, secretKey)
 
-	o.Authenticate = !(accessKey == "")
-	if o.Authenticate != false {
-
+	keyPairIsValid := accessKey != "" && secretKey != ""
+	if keyPairIsValid {
 		o.AccessKey = accessKey
 		o.SecretKey = secretKey
-
-	} else {
-		o.Token = ""
+		o.Token = "<dummy_token>"
 		o.Expire = time.UnixMicro(0)
+	} else {
 		o.AccessKey = ""
 		o.SecretKey = ""
+		o.Token = ""
+		o.Expire = time.UnixMicro(0)
 	}
 
 	return nil
 }
 
-func (o *ClientOpt) MustBindAuthentication(cmd *cobra.Command) {
+func (o *ClientAuthOpt) MustBindAuthentication(cmd *cobra.Command) {
 	err := o.BindAuthentication(cmd)
 	if err != nil {
 		log.Errorln(err)

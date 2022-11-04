@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
-type login struct {
+type LoginCredential struct {
 	AccessKey string `form:"accessKey" json:"accessKey" binding:"required"`
 	SecretKey string `form:"secretKey" json:"secretKey" binding:"required"`
+}
+
+type JWTResponse struct {
+	Code   int       `json:"code""`
+	Expire time.Time `json:"expire"`
+	Token  string    `json:"token"`
 }
 
 type User struct {
@@ -24,7 +30,7 @@ func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath s
 		Timeout:          timeout,
 		MaxRefresh:       timeout,
 		Authenticator: func(c *gin.Context) (interface{}, error) {
-			var loginValues login
+			var loginValues LoginCredential
 			if err := c.ShouldBind(&loginValues); err != nil {
 				return "", jwt.ErrMissingLoginValues
 			}

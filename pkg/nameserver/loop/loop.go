@@ -37,9 +37,9 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	pingController := ping.NewController(nil)
 	pingGroup.GET("/", pingController.Get)
 
-	infoAuthGroup, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.NameserverInfoPath)
+	v1, _ := auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.NameserverAPIPrefix)
 	infoController := info.NewController(nil)
-	infoAuthGroup.GET("/", infoController.Get)
+	v1.GET(server.NameserverInfoPath, infoController.Get)
 
 	_ = ginEngine.Run(server.GlobalServerOpt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerOpt.Network.Port))
 

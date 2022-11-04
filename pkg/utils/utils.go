@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"github.com/sethvargo/go-password/password"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 	"net"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -111,5 +113,43 @@ func AskForConfirmationDefaultYes(s string) bool {
 	} else {
 		return false
 	}
+
+}
+
+func DumpOption(opt interface{}, outputPath string, overwrite bool) {
+	buffer, _ := yaml.Marshal(opt)
+
+	parentPath := path.Dir(outputPath)
+	if _, err := os.Stat(parentPath); os.IsNotExist(err) {
+		err = os.MkdirAll(parentPath, 0644)
+		if err != nil {
+			log.Panicln("cannot create directory", parentPath)
+		}
+	}
+
+	if !overwrite {
+		if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+			ret := AskForConfirmationDefaultYes("configuration " + outputPath + " already exist, overwrite?")
+			if !ret {
+				log.Infoln("abort")
+				return
+			}
+		}
+	}
+
+	log.Debugln("writing default configuration to", outputPath)
+	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	defer func() { _ = f.Close() }()
+	if err != nil {
+		panic("cannot open " + outputPath + ", check permissions")
+	}
+
+	w := bufio.NewWriter(f)
+	_, err = w.Write(buffer)
+	if err != nil {
+		log.Panicln("cannot write configuration", err)
+	}
+	_ = w.Flush()
+	_ = f.Close()
 
 }

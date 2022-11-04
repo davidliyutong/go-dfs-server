@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -124,44 +123,6 @@ func GetDataserverOpt() DataserverOpt {
 
 }
 
-func dumpServerOption(opt interface{}, outputPath string, overwrite bool) {
-	buffer, _ := yaml.Marshal(opt)
-
-	parentPath := path.Dir(outputPath)
-	if _, err := os.Stat(parentPath); os.IsNotExist(err) {
-		err = os.MkdirAll(parentPath, 0644)
-		if err != nil {
-			log.Panicln("cannot create directory", parentPath)
-		}
-	}
-
-	if !overwrite {
-		if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-			ret := utils2.AskForConfirmationDefaultYes("configuration " + outputPath + " already exist, overwrite?")
-			if !ret {
-				log.Infoln("abort")
-				return
-			}
-		}
-	}
-
-	log.Infoln("writing default configuration to", outputPath)
-	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
-	defer func() { _ = f.Close() }()
-	if err != nil {
-		panic("cannot open " + outputPath + ", check permissions")
-	}
-
-	w := bufio.NewWriter(f)
-	_, err = w.Write(buffer)
-	if err != nil {
-		log.Panicln("cannot write configuration", err)
-	}
-	_ = w.Flush()
-	_ = f.Close()
-
-}
-
 func NameserverInit(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
@@ -173,7 +134,7 @@ func NameserverInit(cmd *cobra.Command, args []string) {
 	if printFlag {
 		fmt.Println(string(configBuffer))
 	} else {
-		dumpServerOption(cfg, outputPath, overwriteFlag)
+		utils2.DumpOption(cfg, outputPath, overwriteFlag)
 	}
 }
 
@@ -188,7 +149,7 @@ func DataserverInit(cmd *cobra.Command, args []string) {
 	if printFlag {
 		fmt.Println(string(configBuffer))
 	} else {
-		dumpServerOption(cfg, outputPath, overwriteFlag)
+		utils2.DumpOption(cfg, outputPath, overwriteFlag)
 	}
 }
 
@@ -239,8 +200,9 @@ func (o *NameserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 
 	// If a config file is found, read it in.
 	if err := vipCfg.ReadInConfig(); err == nil {
-		fmt.Println("using config file:", vipCfg.ConfigFileUsed())
+		log.Infoln("using config file:", vipCfg.ConfigFileUsed())
 	} else {
+		log.Warnln(err)
 		return vipCfg, err
 	}
 
@@ -298,8 +260,9 @@ func (o *DataserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 	_ = vipCfg.BindPFlag("debug", cmd.Flags().Lookup("debug"))
 
 	if err := vipCfg.ReadInConfig(); err == nil {
-		fmt.Println("using config file:", vipCfg.ConfigFileUsed())
+		log.Infoln("using config file:", vipCfg.ConfigFileUsed())
 	} else {
+		log.Warnln(err)
 		return vipCfg, err
 	}
 

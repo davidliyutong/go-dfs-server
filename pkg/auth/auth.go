@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type LoginCredential struct {
+type ClientLoginCredential struct {
 	AccessKey string `form:"accessKey" json:"accessKey" binding:"required"`
 	SecretKey string `form:"secretKey" json:"secretKey" binding:"required"`
 }
@@ -30,7 +30,7 @@ func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath s
 		Timeout:          timeout,
 		MaxRefresh:       timeout,
 		Authenticator: func(c *gin.Context) (interface{}, error) {
-			var loginValues LoginCredential
+			var loginValues ClientLoginCredential
 			if err := c.ShouldBind(&loginValues); err != nil {
 				return "", jwt.ErrMissingLoginValues
 			}

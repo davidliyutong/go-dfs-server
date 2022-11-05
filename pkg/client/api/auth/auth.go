@@ -25,7 +25,7 @@ type AuthClusterInfo struct {
 
 func (o *Client) AuthLogin(a *config.ClientAuthOpt) error {
 
-	credentials := auth.LoginCredential{
+	credentials := auth.ClientLoginCredential{
 		AccessKey: a.AccessKey,
 		SecretKey: a.SecretKey,
 	}

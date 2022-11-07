@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"go-dfs-server/pkg/auth"
 	"go-dfs-server/pkg/config"
-	"go-dfs-server/pkg/nameserver/apiserver/info"
 	"go-dfs-server/pkg/nameserver/apiserver/ping"
+	"go-dfs-server/pkg/nameserver/apiserver/sys"
 	"go-dfs-server/pkg/nameserver/server"
 	"os"
 	"path/filepath"
@@ -47,7 +47,7 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	pingGroup := ginEngine.Group(server.APILayout.Ping)
 	pingController := ping.NewController(nil)
 	pingGroup.GET("", pingController.Get)
-	infoController := info.NewController(nil)
+	infoController := sys.NewController(nil)
 	infoPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Info)
 
 	v1API.GET(infoPath, infoController.Get)

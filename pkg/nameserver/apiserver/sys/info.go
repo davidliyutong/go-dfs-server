@@ -1,4 +1,4 @@
-package info
+package sys
 
 import (
 	jwt "github.com/appleboy/gin-jwt/v2"

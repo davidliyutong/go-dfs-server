@@ -22,7 +22,7 @@ type ClusterInfo struct {
 func (o *Client) Info(a *config.ClientAuthOpt) (ClusterInfo, error) {
 	client := &http.Client{}
 
-	request, err := http.NewRequest("GET", o.GetHTTPUrl()+server.APILayout.Info, nil)
+	request, err := http.NewRequest("GET", o.GetHTTPUrl()+server.APILayout.V1.Sys, nil)
 	if err != nil {
 		return ClusterInfo{}, err
 	}

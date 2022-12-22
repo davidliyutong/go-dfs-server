@@ -12,7 +12,7 @@ import (
 func Logout(cmd *cobra.Command, args []string) {
 	log.Debugln("client auth")
 
-	opt := config.GetClientOpt()
+	opt := config.NewClientOpt()
 	vipCfg, err := opt.Parse(cmd)
 	if err != nil {
 		log.Infoln("found no configuration, exit")

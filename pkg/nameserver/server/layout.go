@@ -2,7 +2,7 @@ package server
 
 import "go-dfs-server/pkg/config"
 
-var GlobalServerOpt *config.NameserverOpt
+var GlobalServerDesc *config.NameserverDesc
 
 const NameserverAPIVersion = "v1"
 
@@ -14,14 +14,14 @@ type NameserverLayoutAuth struct {
 
 type NameserverLayoutV1 struct {
 	Self string
-	Info string
+	Blob string
+	Sys  string
 }
 
 type NameserverLayoutRoot struct {
 	Self string
 	Auth NameserverLayoutAuth
 	Ping string
-	Info string
 	V1   NameserverLayoutV1
 }
 
@@ -33,9 +33,9 @@ var APILayout = NameserverLayoutRoot{
 		Refresh: "/auth/refresh",
 	},
 	Ping: "/ping",
-	Info: "/info",
 	V1: NameserverLayoutV1{
 		Self: "/v1",
-		Info: "/v1/info",
+		Blob: "/v1/blob",
+		Sys:  "/v1/sys",
 	},
 }

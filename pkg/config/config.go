@@ -49,7 +49,6 @@ type NameserverNetworkOpt struct {
 
 type DataserverNetworkOpt struct {
 	Port     int
-	Remote   string
 	Endpoint string
 }
 
@@ -73,6 +72,11 @@ type NameserverOpt struct {
 	Log     LogOpt
 }
 
+type NameserverDesc struct {
+	Opt   NameserverOpt
+	Viper *viper.Viper
+}
+
 func (o *NameserverOpt) AuthIsEnabled() bool {
 	return o.Auth.AccessKey != "" && o.Auth.SecretKey != ""
 }
@@ -81,9 +85,13 @@ type DataserverOpt struct {
 	Role    SeverRoleType
 	Network DataserverNetworkOpt
 	Volume  string
-	Auth    AuthOpt
 	Debug   bool
 	Log     LogOpt
+}
+
+type DataserverDesc struct {
+	Opt   DataserverOpt
+	Viper *viper.Viper
 }
 
 type ClientOpt struct {
@@ -115,7 +123,7 @@ func (o *ClientOpt) GetHTTPUrl() string {
 	}
 }
 
-func GetNameserverOpt() NameserverOpt {
+func NewNameserverOpt() NameserverOpt {
 	accessKey, secretKey := utils.MustGenerateAuthKeys()
 
 	return NameserverOpt{
@@ -136,10 +144,16 @@ func GetNameserverOpt() NameserverOpt {
 			Path:  "",
 		},
 	}
-
 }
 
-func GetDataserverOpt() DataserverOpt {
+func NewNameserverDesc() NameserverDesc {
+	return NameserverDesc{
+		Opt:   NewNameserverOpt(),
+		Viper: nil,
+	}
+}
+
+func NewDataserverOpt() DataserverOpt {
 	endpoint := utils.GetEndpointURL()
 
 	return DataserverOpt{
@@ -149,12 +163,7 @@ func GetDataserverOpt() DataserverOpt {
 			Endpoint: endpoint,
 		},
 		Volume: DataserverDefaultVolume,
-		Auth: AuthOpt{
-			Domain:    ClusterDefaultDomain,
-			AccessKey: "",
-			SecretKey: "",
-		},
-		Debug: false,
+		Debug:  false,
 		Log: LogOpt{
 			Level: "info",
 			Path:  "",
@@ -163,20 +172,27 @@ func GetDataserverOpt() DataserverOpt {
 
 }
 
-func GetClientOpt() ClientOpt {
+func NewDataserverDesc() DataserverDesc {
+	return DataserverDesc{
+		Opt:   NewDataserverOpt(),
+		Viper: nil,
+	}
+}
+
+func NewClientOpt() ClientOpt {
 	return ClientOpt{}
 }
 
-func GetClientAuthOpt() ClientAuthOpt {
+func NewClientAuthOpt() ClientAuthOpt {
 	return ClientAuthOpt{}
 }
 
-func NameserverInit(cmd *cobra.Command, args []string) {
+func InitNameserverCfg(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
 	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
-	cfg := GetNameserverOpt()
+	cfg := NewNameserverOpt()
 	configBuffer, _ := yaml.Marshal(cfg)
 
 	if printFlag {
@@ -186,12 +202,12 @@ func NameserverInit(cmd *cobra.Command, args []string) {
 	}
 }
 
-func DataserverInit(cmd *cobra.Command, args []string) {
+func InitDataserverCfg(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
 	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
-	cfg := GetDataserverOpt()
+	cfg := NewDataserverOpt()
 	configBuffer, _ := yaml.Marshal(cfg)
 
 	if printFlag {
@@ -201,7 +217,7 @@ func DataserverInit(cmd *cobra.Command, args []string) {
 	}
 }
 
-func (o *NameserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
+func (o *NameserverDesc) Parse(cmd *cobra.Command) error {
 	vipCfg := viper.New()
 	vipCfg.SetDefault("network.port", NameserverDefaultPort)
 	vipCfg.SetDefault("network.interface", NameserverDefaultInterface)
@@ -251,21 +267,21 @@ func (o *NameserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 		log.Infoln("using config file:", vipCfg.ConfigFileUsed())
 	} else {
 		log.Warnln(err)
-		return vipCfg, err
+		return nil
 	}
 
-	if err := vipCfg.Unmarshal(o); err != nil {
-		log.Panicln("failed to unmarshal config")
+	if err := vipCfg.Unmarshal(&o.Opt); err != nil {
+		log.Fatalln("failed to unmarshal config")
+		os.Exit(1)
 	}
-
-	return vipCfg, nil
+	o.Viper = vipCfg
+	return nil
 }
 
-func (o *DataserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
+func (o *DataserverDesc) Parse(cmd *cobra.Command) error {
 	vipCfg := viper.New()
 	vipCfg.SetDefault("network.port", DataserverDefaultPort)
 	vipCfg.SetDefault("volume", DataserverDefaultVolume)
-	vipCfg.SetDefault("auth.domain", ClusterDefaultDomain)
 	vipCfg.SetDefault("debug", false)
 	vipCfg.SetDefault("log.debug", "info")
 	vipCfg.SetDefault("log.path", "")
@@ -288,37 +304,31 @@ func (o *DataserverOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 
 	vipCfg.SetEnvPrefix("DFSAPP")
 	_ = vipCfg.BindEnv("network.port", "DFSAPP_PORT")
-	_ = vipCfg.BindEnv("network.remote", "DFSAPP_REMOTE")
 	_ = vipCfg.BindEnv("network.endpoint", "DFSAPP_ENDPOINT")
-	_ = vipCfg.BindEnv("auth.domain", "DFSAPP_DOMAIN")
-	_ = vipCfg.BindEnv("auth.accesskey", "DFSAPP_ACCESSKEY")
-	_ = vipCfg.BindEnv("auth.secretkey", "DFSAPP_SECRETKEY")
 	_ = vipCfg.BindEnv("debug", "DFSAPP_DEBUG")
 	_ = vipCfg.BindEnv("log.level", "DFSAPP_LOG_LEVEL")
 	_ = vipCfg.BindEnv("log.path", "DFSAPP_LOG_PATH")
 	vipCfg.AutomaticEnv()
 
 	_ = vipCfg.BindPFlag("network.port", cmd.Flags().Lookup("port"))
-	_ = vipCfg.BindPFlag("network.remote", cmd.Flags().Lookup("remote"))
 	_ = vipCfg.BindPFlag("network.endpoint", cmd.Flags().Lookup("endpoint"))
 	_ = vipCfg.BindPFlag("volume", cmd.Flags().Lookup("volume"))
-	_ = vipCfg.BindPFlag("auth.domain", cmd.Flags().Lookup("domain"))
-	_ = vipCfg.BindPFlag("auth.accesskey", cmd.Flags().Lookup("accessKey"))
-	_ = vipCfg.BindPFlag("auth.secretkey", cmd.Flags().Lookup("secretKey"))
 	_ = vipCfg.BindPFlag("debug", cmd.Flags().Lookup("debug"))
 
 	if err := vipCfg.ReadInConfig(); err == nil {
 		log.Infoln("using config file:", vipCfg.ConfigFileUsed())
 	} else {
 		log.Warnln(err)
-		return vipCfg, err
+		return err
 	}
 
-	if err := vipCfg.Unmarshal(o); err != nil {
-		log.Panicln("failed to unmarshal config")
+	if err := vipCfg.Unmarshal(&o.Opt); err != nil {
+		log.Fatalln("failed to unmarshal config")
+		os.Exit(1)
 	}
+	o.Viper = vipCfg
 
-	return vipCfg, nil
+	return nil
 }
 
 func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
@@ -358,11 +368,11 @@ func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 	return vipCfg, nil
 }
 
-func (o *NameserverOpt) PostParse() {
-	if o.Debug || o.Log.Level == "debug" {
+func (o *NameserverDesc) PostParse() {
+	if o.Opt.Debug || o.Opt.Log.Level == "debug" {
 		log.SetLevel(log.DebugLevel)
 	} else {
-		lvl, err := log.ParseLevel(o.Log.Level)
+		lvl, err := log.ParseLevel(o.Opt.Log.Level)
 		if err != nil {
 			log.Errorf("error parsing loglevel: %s, using INFO", err)
 			lvl = log.InfoLevel
@@ -371,11 +381,11 @@ func (o *NameserverOpt) PostParse() {
 	}
 }
 
-func (o *DataserverOpt) PostParse() {
-	if o.Debug || o.Log.Level == "debug" {
+func (o *DataserverDesc) PostParse() {
+	if o.Opt.Debug || o.Opt.Log.Level == "debug" {
 		log.SetLevel(log.DebugLevel)
 	} else {
-		lvl, err := log.ParseLevel(o.Log.Level)
+		lvl, err := log.ParseLevel(o.Opt.Log.Level)
 		if err != nil {
 			log.Errorf("error parsing loglevel: %s, using INFO", err)
 			lvl = log.InfoLevel

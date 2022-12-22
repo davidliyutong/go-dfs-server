@@ -49,7 +49,7 @@ If --yes / -y flag is present, the configuration will be overwrite without confi
 	Example: `  go-dfs-nameserver init --print
   go-dfs-nameserver init --output /path/to/nameserver.yaml
   go-dfs-nameserver init -o /path/to/nameserver.yaml -y`,
-	Run: config.NameserverInit,
+	Run: config.InitNameserverCfg,
 }
 
 func getRootCmd() *cobra.Command {

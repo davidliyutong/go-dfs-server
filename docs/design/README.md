@@ -9,7 +9,7 @@
 - `Read(handle)`
 - `Write(handle)`
 - `SeekFile(handle, offset)`
-- `LockFile(handle, offset)`
+- `LockFile(handle)`
 
 ### Directory Management
 

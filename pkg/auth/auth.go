@@ -13,7 +13,7 @@ type ClientLoginCredential struct {
 }
 
 type JWTResponse struct {
-	Code   int       `json:"code""`
+	Code   int       `json:"code"`
 	Expire time.Time `json:"expire"`
 	Token  string    `json:"token"`
 }
@@ -24,9 +24,9 @@ type User struct {
 
 func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath string, timeout time.Duration, authnFn func(string, string) bool, authzFn func(string) bool) (*jwt.GinJWTMiddleware, error) {
 	ginJWT, _ := jwt.New(&jwt.GinJWTMiddleware{
-		Realm:            server.GlobalServerOpt.Auth.Domain,
+		Realm:            server.GlobalServerDesc.Opt.Auth.Domain,
 		SigningAlgorithm: "HS256",
-		Key:              []byte(server.GlobalServerOpt.Auth.SecretKey),
+		Key:              []byte(server.GlobalServerDesc.Opt.Auth.SecretKey),
 		Timeout:          timeout,
 		MaxRefresh:       timeout,
 		Authenticator: func(c *gin.Context) (interface{}, error) {
@@ -68,7 +68,7 @@ func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath s
 			return false
 		},
 		Unauthorized: func(c *gin.Context, code int, message string) {
-			c.JSON(code, gin.H{
+			c.IndentedJSON(code, gin.H{
 				"code":    code,
 				"message": message,
 			})

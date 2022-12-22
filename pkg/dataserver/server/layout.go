@@ -2,40 +2,44 @@ package server
 
 import "go-dfs-server/pkg/config"
 
-var GlobalServerOpt *config.NameserverOpt
+var GlobalServerDesc *config.DataserverDesc
 
 const DataserverAPIVersion = "v1"
 
-type DataserverLayoutAuth struct {
-	Self    string
-	Login   string
-	Refresh string
-}
-
 type DataserverLayoutV1 struct {
 	Self string
-	Info string
+	Blob string
+	Sys  string
 }
 
 type DataserverLayoutRoot struct {
 	Self string
-	Auth DataserverLayoutAuth
 	Ping string
 	Info string
 	V1   DataserverLayoutV1
 }
 
+type DataserverLayoutBlob struct {
+	Self            string
+	createChunk     string
+	createDirectory string
+	createFile      string
+	deleteChunk     string
+	deleteDirectory string
+	deleteFile      string
+	lockFile        string
+	readChunk       string
+	readMeta        string
+	unlockFile      string
+	writeChunk      string
+}
+
 var APILayout = DataserverLayoutRoot{
 	Self: "/",
-	Auth: DataserverLayoutAuth{
-		Self:    "/auth",
-		Login:   "/auth/login",
-		Refresh: "/auth/refresh",
-	},
 	Ping: "/ping",
-	Info: "/info",
 	V1: DataserverLayoutV1{
 		Self: "/v1",
-		Info: "/v1/info",
+		Blob: "/v1/blob",
+		Sys:  "/v1/sys",
 	},
 }

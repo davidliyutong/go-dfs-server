@@ -15,7 +15,7 @@ func (o *controller) Get(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	log.Debugln("the claims is:", claims)
 	user, _ := c.Get(auth.IdentityKeyStr)
-	c.JSON(200, gin.H{
+	c.IndentedJSON(200, gin.H{
 		"accessKey": user.(*auth.User).AccessKey,
 		"message":   "OK",
 	})

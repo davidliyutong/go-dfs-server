@@ -2,15 +2,19 @@ package utils
 
 import (
 	"bufio"
+	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"github.com/sethvargo/go-password/password"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"io"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -70,7 +74,7 @@ func GetEndpointURL() string {
 		}
 	}
 end:
-	return "dfs://" + ipString + ":27904"
+	return ipString + ":27904"
 }
 
 func AskForConfirmation(s string) bool {
@@ -120,10 +124,20 @@ func DumpOption(opt interface{}, outputPath string, overwrite bool) {
 	buffer, _ := yaml.Marshal(opt)
 
 	parentPath := path.Dir(outputPath)
-	if _, err := os.Stat(parentPath); os.IsNotExist(err) {
-		err = os.MkdirAll(parentPath, 0644)
+	fileInfo, err := os.Stat(parentPath)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(parentPath, 0700)
 		if err != nil {
-			log.Panicln("cannot create directory", parentPath)
+			log.Errorln("cannot create directory", parentPath)
+			log.Exit(1)
+		}
+	}
+
+	if os.IsPermission(err) || fileInfo.Mode() != 0700 {
+		err = os.Chmod(parentPath, 0700)
+		if err != nil {
+			log.Errorln("cannot read director", parentPath)
+			log.Exit(1)
 		}
 	}
 
@@ -138,7 +152,7 @@ func DumpOption(opt interface{}, outputPath string, overwrite bool) {
 	}
 
 	log.Debugln("writing default configuration to", outputPath)
-	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	defer func() { _ = f.Close() }()
 	if err != nil {
 		panic("cannot open " + outputPath + ", check permissions")
@@ -152,4 +166,57 @@ func DumpOption(opt interface{}, outputPath string, overwrite bool) {
 	_ = w.Flush()
 	_ = f.Close()
 
+}
+
+func GetChunkPath(path string, chunkID int64) string {
+	return filepath.Join(path, strconv.FormatInt(chunkID, 10)+".dat")
+}
+
+func GetMetaPath(path string) string {
+	return filepath.Join(path, "meta.json")
+}
+
+func GetLockPath(path string) string {
+	return filepath.Join(path, ".lock")
+}
+
+func GetFileLockState(path string) bool {
+	lockPath := GetLockPath(path)
+	_, err := os.Stat(lockPath)
+	return err == nil
+}
+
+func GetFileState(path string) bool {
+	metaPath := GetMetaPath(path)
+	_, err := os.Stat(metaPath)
+	return err == nil
+}
+
+func GetFileMD5(path string) (string, error) {
+	//Initialize variable returnMD5String now in case an error has to be returned
+	var returnMD5String string
+	//Open the passed argument and check for any error
+	file, err := os.Open(path)
+	if err != nil {
+		return returnMD5String, err
+	}
+	//Tell the program to call the following function when the current function returns
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+
+		}
+	}(file)
+
+	//Open a new hash interface to write to
+	hash := md5.New()
+	//Copy the file in the hash interface and check for any error
+	if _, err := io.Copy(hash, file); err != nil {
+		return returnMD5String, err
+	}
+	//Get the 16 bytes hash
+	hashInBytes := hash.Sum(nil)[:16]
+	//Convert the bytes to a string
+	returnMD5String = hex.EncodeToString(hashInBytes)
+	return returnMD5String, nil
 }

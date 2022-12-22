@@ -12,8 +12,8 @@ import (
 func Login(cmd *cobra.Command, args []string) {
 	log.Debugln("client auth")
 
-	opt := config.GetClientOpt()
-	authOpt := config.GetClientAuthOpt()
+	opt := config.NewClientOpt()
+	authOpt := config.NewClientAuthOpt()
 	vipCfg, err := opt.Parse(cmd)
 	if err != nil {
 		if len(args) <= 0 {

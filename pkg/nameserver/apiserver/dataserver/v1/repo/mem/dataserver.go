@@ -5,42 +5,42 @@ import (
 	repoInterface "go-dfs-server/pkg/nameserver/apiserver/dataserver/v1/repo"
 )
 
-type dataserverRepo struct {
-	data []*model.Dataserver
+type dataServerRepo struct {
+	data []*model.DataServer
 }
 
-var _ repoInterface.DataserverRepo = (*dataserverRepo)(nil)
+var _ repoInterface.DataServerRepo = (*dataServerRepo)(nil)
 
-func (o *dataserverRepo) Create(server *model.Dataserver) error {
+func (o *dataServerRepo) Create(server *model.DataServer) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (o *dataserverRepo) DeleteByUUID(uuid int64) error {
+func (o *dataServerRepo) DeleteByUUID(uuid int64) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (o *dataserverRepo) DeleteByName(uuid int64) error {
+func (o *dataServerRepo) DeleteByName(uuid int64) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (o *dataserverRepo) Update(server *model.Dataserver) error {
+func (o *dataServerRepo) Update(server *model.DataServer) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (o *dataserverRepo) GetByUUID(uuid int64) error {
+func (o *dataServerRepo) GetByUUID(uuid int64) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (o *dataserverRepo) List() (*model.DataserverList, error) {
+func (o *dataServerRepo) List() (*model.DataServerList, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func newDataserverRepo() repoInterface.DataserverRepo {
-	return &dataserverRepo{nil}
+func newDataServerRepo() repoInterface.DataServerRepo {
+	return &dataServerRepo{nil}
 }

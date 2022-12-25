@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 type createDirectoryRequest struct {
@@ -20,16 +21,16 @@ func (c2 controller) CreateDirectory(c *gin.Context) {
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(400, createDirectoryResponse{Code: 400, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, createDirectoryResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(400, createDirectoryResponse{Code: 400, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, createDirectoryResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			err = c2.srv.NewBlobService().CreateDirectory(request.Path)
 			if err != nil {
-				c.IndentedJSON(500, createDirectoryResponse{Code: 500, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, createDirectoryResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(200, createDirectoryResponse{Code: 200, Msg: ""})
+				c.IndentedJSON(http.StatusOK, createDirectoryResponse{Code: http.StatusOK, Msg: ""})
 			}
 		}
 		log.Debug("blob/CreateDirectory ", request)

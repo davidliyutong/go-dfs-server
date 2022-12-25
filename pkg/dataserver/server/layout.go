@@ -2,24 +2,26 @@ package server
 
 import "go-dfs-server/pkg/config"
 
-var GlobalServerDesc *config.DataserverDesc
+var GlobalServerDesc *config.DataServerDesc
 
-const DataserverAPIVersion = "v1"
+var GlobalFileLocks map[string]map[string]bool
 
-type DataserverLayoutV1 struct {
+const DataServerAPIVersion = "v1"
+
+type DataServerLayoutV1 struct {
 	Self string
 	Blob string
 	Sys  string
 }
 
-type DataserverLayoutRoot struct {
+type DataServerLayoutRoot struct {
 	Self string
 	Ping string
 	Info string
-	V1   DataserverLayoutV1
+	V1   DataServerLayoutV1
 }
 
-type DataserverLayoutBlob struct {
+type DataServerLayoutBlob struct {
 	Self            string
 	createChunk     string
 	createDirectory string
@@ -34,10 +36,10 @@ type DataserverLayoutBlob struct {
 	writeChunk      string
 }
 
-var APILayout = DataserverLayoutRoot{
+var APILayout = DataServerLayoutRoot{
 	Self: "/",
 	Ping: "/ping",
-	V1: DataserverLayoutV1{
+	V1: DataServerLayoutV1{
 		Self: "/v1",
 		Blob: "/v1/blob",
 		Sys:  "/v1/sys",

@@ -5,10 +5,12 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
 	"github.com/sethvargo/go-password/password"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"io"
 	"net"
 	"os"
@@ -168,6 +170,15 @@ func DumpOption(opt interface{}, outputPath string, overwrite bool) {
 
 }
 
+func JoinSubPathSafe(path string, subpath string) (string, error) {
+	subpath = filepath.Clean(subpath)
+	if strings.HasPrefix(subpath, "..") {
+		return "", errors.New(fmt.Sprintf("subpath %s is not allowed", subpath))
+	} else {
+		return filepath.Join(path, subpath), nil
+	}
+}
+
 func GetChunkPath(path string, chunkID int64) string {
 	return filepath.Join(path, strconv.FormatInt(chunkID, 10)+".dat")
 }
@@ -214,9 +225,14 @@ func GetFileMD5(path string) (string, error) {
 	if _, err := io.Copy(hash, file); err != nil {
 		return returnMD5String, err
 	}
-	//Get the 16 bytes hash
+	//Info the 16 bytes hash
 	hashInBytes := hash.Sum(nil)[:16]
 	//Convert the bytes to a string
 	returnMD5String = hex.EncodeToString(hashInBytes)
 	return returnMD5String, nil
+}
+
+func MustGenerateUUID() string {
+	ul := uuid.NewV4()
+	return ul.String()
 }

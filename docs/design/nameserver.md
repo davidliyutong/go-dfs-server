@@ -1,4 +1,4 @@
-# Nameserver Design
+# NameServer Design
 
 ## API List
 

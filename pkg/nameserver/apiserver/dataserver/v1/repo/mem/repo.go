@@ -6,7 +6,7 @@ import (
 )
 
 type repo struct {
-	dataserverRepo repoInterface.DataserverRepo
+	dataServerRepo repoInterface.DataServerRepo
 }
 
 var (
@@ -14,19 +14,19 @@ var (
 	once sync.Once
 )
 
+func (r *repo) DataServerRepo() repoInterface.DataServerRepo {
+	return r.dataServerRepo
+}
+
+func (r *repo) Close() error {
+	return nil
+}
+
 func InitRepo() (repoInterface.Repo, error) {
 	once.Do(func() {
-		r = repo{
-			dataserverRepo: newDataserverRepo(),
+		r = &repo{
+			dataServerRepo: newDataServerRepo(),
 		}
 	})
 	return r, nil
-}
-
-func (r repo) DataserverRepo() repoInterface.DataserverRepo {
-	return r.dataserverRepo
-}
-
-func (r repo) Close() error {
-	return nil
 }

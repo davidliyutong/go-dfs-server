@@ -49,15 +49,15 @@ If --yes / -y flag is present, the configuration will be overwrite without confi
 	Example: `  go-dfs-nameserver init --print
   go-dfs-nameserver init --output /path/to/nameserver.yaml
   go-dfs-nameserver init -o /path/to/nameserver.yaml -y`,
-	Run: config.InitNameserverCfg,
+	Run: config.InitNameServerCfg,
 }
 
 func getRootCmd() *cobra.Command {
 
 	serveCmd.Flags().String("config", "", "default configuration path")
-	serveCmd.Flags().Int16P("port", "p", config.NameserverDefaultPort, "port that nameserver listen on")
-	serveCmd.Flags().StringP("interface", "i", config.NameserverDefaultInterface, "interface that nameserver listen on, default to 0.0.0.0")
-	serveCmd.Flags().String("volume", config.NameserverDefaultVolume, "default configuration path")
+	serveCmd.Flags().Int16P("port", "p", config.NameServerDefaultPort, "port that nameserver listen on")
+	serveCmd.Flags().StringP("interface", "i", config.NameServerDefaultInterface, "interface that nameserver listen on, default to 0.0.0.0")
+	serveCmd.Flags().String("volume", config.NameServerDefaultVolume, "default configuration path")
 	serveCmd.Flags().String("domain", config.ClusterDefaultDomain, "domain of DFS cluster, default to dfs.local")
 
 	serveCmd.Flags().String("accessKey", "", "server access key")
@@ -67,7 +67,7 @@ func getRootCmd() *cobra.Command {
 
 	initCmd.Flags().Bool("print", false, "print config to stdout")
 	initCmd.Flags().BoolP("yes", "y", false, "overwrite")
-	initCmd.Flags().StringP("output", "o", config.NameserverDefaultConfig, "specify output directory")
+	initCmd.Flags().StringP("output", "o", config.NameServerDefaultConfig, "specify output directory")
 	rootCmd.AddCommand(initCmd)
 
 	return rootCmd

@@ -1,11 +1,9 @@
 package v1
 
-import (
-	"go-dfs-server/pkg/nameserver/apiserver/sys/v1/repo"
-)
+import "go-dfs-server/pkg/nameserver/apiserver/sys/v1/repo"
 
 type SysService interface {
-	//Info() (string, error)
+	Info() (string, error)
 }
 
 var _ SysService = (*sysService)(nil)
@@ -14,9 +12,10 @@ type sysService struct {
 	repo repo.Repo
 }
 
-//func (s sysService) Info() (string, error) {
-//	panic("implement me")
-//}
+func (o sysService) Info() (string, error) {
+	//TODO implement me
+	panic("implement me")
+}
 
 func newSysService(repo repo.Repo) SysService {
 	return &sysService{repo: repo}
@@ -33,9 +32,9 @@ type service struct {
 var _ Service = (*service)(nil)
 
 func NewService(repo repo.Repo) Service {
-	return &service{repo}
+	return &service{repo: repo}
 }
 
-func (*service) NewSysService(repo repo.Repo) SysService {
+func (s *service) NewSysService(repo repo.Repo) SysService {
 	return newSysService(repo)
 }

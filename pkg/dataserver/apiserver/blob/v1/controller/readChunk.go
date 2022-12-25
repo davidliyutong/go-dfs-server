@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 type readChunkRequest struct {
@@ -21,14 +22,14 @@ func (c2 controller) ReadChunk(c *gin.Context) {
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(400, readChunkResponse{Code: 400, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, readChunkResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(400, readChunkResponse{Code: 400, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, readChunkResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			err = c2.srv.NewBlobService().ReadChunk(request.Path, request.ID, c)
 			if err != nil {
-				c.IndentedJSON(500, writeChunkResponse{Code: 500, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, writeChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			}
 		}
 		log.Debug("blob/writeChunk ", request)

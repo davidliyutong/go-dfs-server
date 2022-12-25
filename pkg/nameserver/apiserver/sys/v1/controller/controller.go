@@ -2,26 +2,18 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"go-dfs-server/pkg/dataserver/apiserver/sys/v1/repo"
 	srv "go-dfs-server/pkg/dataserver/apiserver/sys/v1/service"
+	"go-dfs-server/pkg/nameserver/apiserver/sys/v1/repo"
 )
 
 type Controller interface {
 	Info(c *gin.Context)
-	Config(c *gin.Context)
-	UUID(c *gin.Context)
-	//UsedSpace(c *gin.Context)
-	//FreeSpace(c *gin.Context)
 }
 
 type controller struct {
 	srv srv.Service
 }
 
-var _ Controller = &controller{}
-
 func NewController(repo repo.Repo) Controller {
-	return &controller{
-		srv: srv.NewService(repo),
-	}
+	return &controller{srv: srv.NewService(repo)}
 }

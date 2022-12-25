@@ -20,34 +20,34 @@ const ServerDefaultConfigSearchPath1 = "./"
 var userHomeDir, _ = os.UserHomeDir()
 var ServerDefaultConfigSearchPath2 = path.Join(userHomeDir, ".config/go-dfs-server")
 var ClientDefaultConfigSearchPath2 = path.Join(userHomeDir, ".config/go-dfs-server")
-var NameserverDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+NameserverDefaultConfigName+".yaml")
-var DataserverDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+DataserverDefaultConfigName+".yaml")
+var NameServerDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+NameServerDefaultConfigName+".yaml")
+var DataServerDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+DataServerDefaultConfigName+".yaml")
 var ClientDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+ClientDefaultConfigName+".yaml")
 
-const NameserverDefaultConfigName = "nameserver"
-const NameserverDefaultPort = 27903
-const NameserverDefaultInterface = "0.0.0.0"
-const NameserverDefaultVolume = "/data"
+const NameServerDefaultConfigName = "nameserver"
+const NameServerDefaultPort = 27903
+const NameServerDefaultInterface = "0.0.0.0"
+const NameServerDefaultVolume = "/data"
 
-const DataserverDefaultConfigName = "dataserver"
-const DataserverDefaultPort = 27904
-const DataserverDefaultVolume = "/data"
+const DataServerDefaultConfigName = "dataserver"
+const DataServerDefaultPort = 27904
+const DataServerDefaultVolume = "/data"
 
 type SeverRoleType string
 
-const NameserverRole = "nameserver"
-const DataserverRole = "dataserver"
+const NameServerRole = "nameserver"
+const DataServerRole = "dataserver"
 
 const ClientDefaultConfigName = "client"
 const ClientDefaultConfigSearchPath0 = "/etc/go-dfs-server"
 const ClientDefaultConfigSearchPath1 = "./"
 
-type NameserverNetworkOpt struct {
+type NameServerNetworkOpt struct {
 	Port      int
 	Interface string
 }
 
-type DataserverNetworkOpt struct {
+type DataServerNetworkOpt struct {
 	Port     int
 	Endpoint string
 }
@@ -63,34 +63,37 @@ type LogOpt struct {
 	Path  string
 }
 
-type NameserverOpt struct {
-	Role    SeverRoleType
-	Network NameserverNetworkOpt
-	Volume  string
-	Auth    AuthOpt
-	Debug   bool
-	Log     LogOpt
+type NameServerOpt struct {
+	Role        SeverRoleType
+	UUID        string
+	Network     NameServerNetworkOpt
+	Volume      string
+	Auth        AuthOpt
+	Debug       bool
+	Log         LogOpt
+	DataServers []string
 }
 
-type NameserverDesc struct {
-	Opt   NameserverOpt
+type NameServerDesc struct {
+	Opt   NameServerOpt
 	Viper *viper.Viper
 }
 
-func (o *NameserverOpt) AuthIsEnabled() bool {
+func (o *NameServerOpt) AuthIsEnabled() bool {
 	return o.Auth.AccessKey != "" && o.Auth.SecretKey != ""
 }
 
-type DataserverOpt struct {
+type DataServerOpt struct {
 	Role    SeverRoleType
-	Network DataserverNetworkOpt
+	UUID    string
+	Network DataServerNetworkOpt
 	Volume  string
 	Debug   bool
 	Log     LogOpt
 }
 
-type DataserverDesc struct {
-	Opt   DataserverOpt
+type DataServerDesc struct {
+	Opt   DataServerOpt
 	Viper *viper.Viper
 }
 
@@ -123,16 +126,17 @@ func (o *ClientOpt) GetHTTPUrl() string {
 	}
 }
 
-func NewNameserverOpt() NameserverOpt {
+func NewNameServerOpt() NameServerOpt {
 	accessKey, secretKey := utils.MustGenerateAuthKeys()
 
-	return NameserverOpt{
-		Role: NameserverRole,
-		Network: NameserverNetworkOpt{
-			Port:      NameserverDefaultPort,
-			Interface: NameserverDefaultInterface,
+	return NameServerOpt{
+		Role: NameServerRole,
+		UUID: "",
+		Network: NameServerNetworkOpt{
+			Port:      NameServerDefaultPort,
+			Interface: NameServerDefaultInterface,
 		},
-		Volume: NameserverDefaultVolume,
+		Volume: NameServerDefaultVolume,
 		Auth: AuthOpt{
 			Domain:    ClusterDefaultDomain,
 			AccessKey: accessKey,
@@ -146,23 +150,24 @@ func NewNameserverOpt() NameserverOpt {
 	}
 }
 
-func NewNameserverDesc() NameserverDesc {
-	return NameserverDesc{
-		Opt:   NewNameserverOpt(),
+func NewNameServerDesc() NameServerDesc {
+	return NameServerDesc{
+		Opt:   NewNameServerOpt(),
 		Viper: nil,
 	}
 }
 
-func NewDataserverOpt() DataserverOpt {
+func NewDataServerOpt() DataServerOpt {
 	endpoint := utils.GetEndpointURL()
 
-	return DataserverOpt{
-		Role: DataserverRole,
-		Network: DataserverNetworkOpt{
-			Port:     DataserverDefaultPort,
+	return DataServerOpt{
+		Role: DataServerRole,
+		UUID: "",
+		Network: DataServerNetworkOpt{
+			Port:     DataServerDefaultPort,
 			Endpoint: endpoint,
 		},
-		Volume: DataserverDefaultVolume,
+		Volume: DataServerDefaultVolume,
 		Debug:  false,
 		Log: LogOpt{
 			Level: "info",
@@ -172,9 +177,9 @@ func NewDataserverOpt() DataserverOpt {
 
 }
 
-func NewDataserverDesc() DataserverDesc {
-	return DataserverDesc{
-		Opt:   NewDataserverOpt(),
+func NewDataServerDesc() DataServerDesc {
+	return DataServerDesc{
+		Opt:   NewDataServerOpt(),
 		Viper: nil,
 	}
 }
@@ -187,12 +192,13 @@ func NewClientAuthOpt() ClientAuthOpt {
 	return ClientAuthOpt{}
 }
 
-func InitNameserverCfg(cmd *cobra.Command, args []string) {
+func InitNameServerCfg(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
 	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
-	cfg := NewNameserverOpt()
+	cfg := NewNameServerOpt()
+	cfg.UUID = utils.MustGenerateUUID()
 	configBuffer, _ := yaml.Marshal(cfg)
 
 	if printFlag {
@@ -202,12 +208,13 @@ func InitNameserverCfg(cmd *cobra.Command, args []string) {
 	}
 }
 
-func InitDataserverCfg(cmd *cobra.Command, args []string) {
+func InitDataServerCfg(cmd *cobra.Command, args []string) {
 	printFlag, _ := cmd.Flags().GetBool("print")
 	outputPath, _ := cmd.Flags().GetString("output")
 	overwriteFlag, _ := cmd.Flags().GetBool("yes")
 
-	cfg := NewDataserverOpt()
+	cfg := NewDataServerOpt()
+	cfg.UUID = utils.MustGenerateUUID()
 	configBuffer, _ := yaml.Marshal(cfg)
 
 	if printFlag {
@@ -217,11 +224,11 @@ func InitDataserverCfg(cmd *cobra.Command, args []string) {
 	}
 }
 
-func (o *NameserverDesc) Parse(cmd *cobra.Command) error {
+func (o *NameServerDesc) Parse(cmd *cobra.Command) error {
 	vipCfg := viper.New()
-	vipCfg.SetDefault("network.port", NameserverDefaultPort)
-	vipCfg.SetDefault("network.interface", NameserverDefaultInterface)
-	vipCfg.SetDefault("volume", NameserverDefaultVolume)
+	vipCfg.SetDefault("network.port", NameServerDefaultPort)
+	vipCfg.SetDefault("network.interface", NameServerDefaultInterface)
+	vipCfg.SetDefault("volume", NameServerDefaultVolume)
 	vipCfg.SetDefault("auth.domain", ClusterDefaultDomain)
 	vipCfg.SetDefault("debug", false)
 	vipCfg.SetDefault("log.debug", "info")
@@ -234,7 +241,7 @@ func (o *NameserverDesc) Parse(cmd *cobra.Command) error {
 		if configFileEnv != "" {
 			vipCfg.SetConfigFile(configFileEnv)
 		} else {
-			vipCfg.SetConfigName(NameserverDefaultConfigName)
+			vipCfg.SetConfigName(NameServerDefaultConfigName)
 			vipCfg.SetConfigType("yaml")
 			vipCfg.AddConfigPath(ServerDefaultConfigSearchPath0)
 			vipCfg.AddConfigPath(ServerDefaultConfigSearchPath1)
@@ -249,11 +256,11 @@ func (o *NameserverDesc) Parse(cmd *cobra.Command) error {
 	_ = vipCfg.BindEnv("auth.domain", "DFSAPP_DOMAIN")
 	_ = vipCfg.BindEnv("auth.accesskey", "DFSAPP_ACCESSKEY")
 	_ = vipCfg.BindEnv("auth.secretkey", "DFSAPP_SECRETKEY")
-	_ = vipCfg.BindEnv("debug", "DFSAPP_DEBUG")
 	_ = vipCfg.BindEnv("log.level", "DFSAPP_LOG_LEVEL")
 	_ = vipCfg.BindEnv("log.path", "DFSAPP_LOG_PATH")
 	vipCfg.AutomaticEnv()
 
+	_ = vipCfg.BindPFlag("uuid", cmd.Flags().Lookup("uuid"))
 	_ = vipCfg.BindPFlag("network.port", cmd.Flags().Lookup("port"))
 	_ = vipCfg.BindPFlag("network.interface", cmd.Flags().Lookup("interface"))
 	_ = vipCfg.BindPFlag("volume", cmd.Flags().Lookup("volume"))
@@ -278,10 +285,10 @@ func (o *NameserverDesc) Parse(cmd *cobra.Command) error {
 	return nil
 }
 
-func (o *DataserverDesc) Parse(cmd *cobra.Command) error {
+func (o *DataServerDesc) Parse(cmd *cobra.Command) error {
 	vipCfg := viper.New()
-	vipCfg.SetDefault("network.port", DataserverDefaultPort)
-	vipCfg.SetDefault("volume", DataserverDefaultVolume)
+	vipCfg.SetDefault("network.port", DataServerDefaultPort)
+	vipCfg.SetDefault("volume", DataServerDefaultVolume)
 	vipCfg.SetDefault("debug", false)
 	vipCfg.SetDefault("log.debug", "info")
 	vipCfg.SetDefault("log.path", "")
@@ -293,7 +300,7 @@ func (o *DataserverDesc) Parse(cmd *cobra.Command) error {
 		if configFileEnv != "" {
 			vipCfg.SetConfigFile(configFileEnv)
 		} else {
-			vipCfg.SetConfigName(DataserverDefaultConfigName)
+			vipCfg.SetConfigName(DataServerDefaultConfigName)
 			vipCfg.SetConfigType("yaml")
 			vipCfg.AddConfigPath(ServerDefaultConfigSearchPath0)
 			vipCfg.AddConfigPath(ServerDefaultConfigSearchPath1)
@@ -305,11 +312,11 @@ func (o *DataserverDesc) Parse(cmd *cobra.Command) error {
 	vipCfg.SetEnvPrefix("DFSAPP")
 	_ = vipCfg.BindEnv("network.port", "DFSAPP_PORT")
 	_ = vipCfg.BindEnv("network.endpoint", "DFSAPP_ENDPOINT")
-	_ = vipCfg.BindEnv("debug", "DFSAPP_DEBUG")
 	_ = vipCfg.BindEnv("log.level", "DFSAPP_LOG_LEVEL")
 	_ = vipCfg.BindEnv("log.path", "DFSAPP_LOG_PATH")
 	vipCfg.AutomaticEnv()
 
+	_ = vipCfg.BindPFlag("uuid", cmd.Flags().Lookup("uuid"))
 	_ = vipCfg.BindPFlag("network.port", cmd.Flags().Lookup("port"))
 	_ = vipCfg.BindPFlag("network.endpoint", cmd.Flags().Lookup("endpoint"))
 	_ = vipCfg.BindPFlag("volume", cmd.Flags().Lookup("volume"))
@@ -368,7 +375,7 @@ func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 	return vipCfg, nil
 }
 
-func (o *NameserverDesc) PostParse() {
+func (o *NameServerDesc) PostParse() {
 	if o.Opt.Debug || o.Opt.Log.Level == "debug" {
 		log.SetLevel(log.DebugLevel)
 	} else {
@@ -381,7 +388,7 @@ func (o *NameserverDesc) PostParse() {
 	}
 }
 
-func (o *DataserverDesc) PostParse() {
+func (o *DataServerDesc) PostParse() {
 	if o.Opt.Debug || o.Opt.Log.Level == "debug" {
 		log.SetLevel(log.DebugLevel)
 	} else {

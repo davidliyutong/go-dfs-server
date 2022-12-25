@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 type readFileMetaRequest struct {
@@ -21,16 +22,16 @@ func (c2 controller) ReadFileMeta(c *gin.Context) {
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(400, readFileMetaResponse{Code: 400, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, readFileMetaResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(400, readFileMetaResponse{Code: 400, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, readFileMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			meta, err := c2.srv.NewBlobService().ReadFileMeta(request.Path)
 			if err != nil {
-				c.IndentedJSON(500, readFileMetaResponse{Code: 500, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, readFileMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(200, readFileMetaResponse{Code: 200, Msg: "", MD5: meta.Content})
+				c.IndentedJSON(http.StatusOK, readFileMetaResponse{Code: http.StatusOK, Msg: "", MD5: meta.Content})
 			}
 		}
 		log.Debug("blob/readFileMeta ", request)

@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type Dataserver struct {
+type DataServer struct {
 	UUID       int64
 	Name       string    `json:"name"`
 	Address    string    `json:"address"`
@@ -18,6 +18,6 @@ type Dataserver struct {
 	Parked     bool      `json:"Parked"`
 }
 
-type DataserverList struct {
-	Items []*Dataserver `json:"items"`
+type DataServerList struct {
+	Items []*DataServer `json:"items"`
 }

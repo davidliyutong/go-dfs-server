@@ -43,9 +43,9 @@ func (o *ClientOpt) BindURL(url string) error {
 
 	var portInt int
 	if len(portMatch) < 1 {
-		portInt = NameserverDefaultPort
+		portInt = NameServerDefaultPort
 	} else {
-		portInt = NameserverDefaultPort
+		portInt = NameServerDefaultPort
 		for _, portStr := range portMatch[0][2:] {
 			pportInt, err := strconv.Atoi(portStr)
 			if err == nil {

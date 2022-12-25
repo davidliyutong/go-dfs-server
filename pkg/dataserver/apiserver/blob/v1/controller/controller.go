@@ -16,6 +16,7 @@ type Controller interface {
 	LockFile(c *gin.Context)
 	ReadChunk(c *gin.Context)
 	ReadChunkMeta(c *gin.Context)
+	ReadFileLock(c *gin.Context)
 	ReadFileMeta(c *gin.Context)
 	UnlockFile(c *gin.Context)
 	WriteChunk(c *gin.Context)

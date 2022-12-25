@@ -1,6 +1,6 @@
 package repo
 
 type Repo interface {
-	DataserverRepo() DataserverRepo
+	DataServerRepo() DataServerRepo
 	Close() error
 }

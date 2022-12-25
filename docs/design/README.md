@@ -1,6 +1,6 @@
 # System Design
 
-## Nameserver APIs
+## NameServer APIs
 
 ### File Management
 

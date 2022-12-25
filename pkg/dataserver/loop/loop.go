@@ -7,8 +7,8 @@ import (
 	"go-dfs-server/pkg/config"
 	blob "go-dfs-server/pkg/dataserver/apiserver/blob/v1/controller"
 	sys "go-dfs-server/pkg/dataserver/apiserver/sys/v1/controller"
-	"go-dfs-server/pkg/dataserver/ping"
 	"go-dfs-server/pkg/dataserver/server"
+	"go-dfs-server/pkg/ping"
 	"os"
 )
 

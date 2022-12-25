@@ -5,11 +5,94 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"time"
 )
+
+var ClientDefaultConfigSearchPath2 = path.Join(userHomeDir, ".config/go-dfs-server")
+var ClientDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+ClientDefaultConfigName+".yaml")
+
+const ClientDefaultConfigName = "client"
+const ClientDefaultConfigSearchPath0 = "/etc/go-dfs-server"
+const ClientDefaultConfigSearchPath1 = "./"
+
+type ClientOpt struct {
+	Token   string
+	Expire  time.Time
+	Address string
+	Port    int16
+	UseTLS  bool
+}
+
+type ClientAuthOpt struct {
+	AccessKey string
+	SecretKey string
+	Token     string
+	Expire    time.Time
+}
+
+func (o *ClientAuthOpt) AuthIsEnabled() bool {
+	return o.Token != ""
+}
+
+func (o *ClientOpt) GetHTTPUrl() string {
+	if o.UseTLS {
+		s := fmt.Sprintf("%s://%s:%d", "https", o.Address, o.Port)
+		return s
+	} else {
+		s := fmt.Sprintf("%s://%s:%d", "http", o.Address, o.Port)
+		return s
+	}
+}
+
+func NewClientOpt() ClientOpt {
+	return ClientOpt{}
+}
+
+func NewClientAuthOpt() ClientAuthOpt {
+	return ClientAuthOpt{}
+}
+
+func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
+	vipCfg := viper.New()
+	vipCfg.SetDefault("_config", ClientDefaultConfig)
+
+	if configFileCmd, err := cmd.Flags().GetString("config"); err == nil && configFileCmd != "" {
+		vipCfg.SetConfigFile(configFileCmd)
+		vipCfg.Set("_config", configFileCmd)
+	} else {
+		configFileEnv := os.Getenv("DFSAPP_CONFIG")
+		if configFileEnv != "" {
+			vipCfg.SetConfigFile(configFileEnv)
+			vipCfg.Set("_config", configFileEnv)
+		} else {
+			vipCfg.SetConfigName(ClientDefaultConfigName)
+			vipCfg.SetConfigType("yaml")
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath0)
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath1)
+			vipCfg.AddConfigPath(ClientDefaultConfigSearchPath2)
+		}
+	}
+	if err := vipCfg.ReadInConfig(); err == nil {
+		log.Debugln("using config file:", vipCfg.ConfigFileUsed())
+		vipCfg.Set("_config", vipCfg.ConfigFileUsed())
+
+	} else {
+		log.Info(err)
+		return vipCfg, err
+	}
+
+	if err := vipCfg.Unmarshal(o); err != nil {
+		log.Errorln("failed to unmarshal config", vipCfg.ConfigFileUsed())
+		os.Exit(1)
+	}
+
+	return vipCfg, nil
+}
 
 func (o *ClientOpt) BindURL(url string) error {
 	protoReg := regexp.MustCompile("^(dfs|dfss)://")

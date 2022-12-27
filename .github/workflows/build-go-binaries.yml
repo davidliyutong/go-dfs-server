@@ -32,8 +32,8 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v3.1.0
       with: 
-        name: go-dfs-server-amd64
-        path: go-dfs-server-amd64.tar.gz
+        name: go-dfs-server
+        path: go-dfs-server-*.tar.gz
 
     - name: Release
       uses: softprops/action-gh-release@v1

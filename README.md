@@ -3,26 +3,33 @@
 
 # How to build
 
-To build docker images, run the build script
+To build docker images, run
 
 ```shell
-./scripts/build_all_docker.sh <tag>
+make image
 ```
 
-This will build the dataserver and nameserver with the specified tag. 
-
-> If no tag is provided, the script will use `$(git describe --tags)` as build tag.
+This will build the dataserver and nameserver with the latest git tag.
 
 # Get Started
 
-To run the demo with docker, use the launch script
+To run the demo with docker, run
 
 ```shell
-./scripts/launch_all_servers.sh <volume> <tab> <number of dataserver> <docker network name>
+make demo
 ```
 
-For example, to use the latest
+> This command pulls image from DockerHub, thus need active Internet connection
+
+To build image from source, run
+
 ```shell
-mkdir data
-./scripts/launch_all_servers.sh $(pwd)/data $(git describe --tags) 4 dfs
+make demo.prepare
+make demo.start
+```
+
+To stop demo, run
+
+```shell
+make demo.stop
 ```

@@ -24,11 +24,8 @@ jobs:
 
     - name: Build
       run: |
-        mkdir build
-        go build -o ./build/go-dfs-nameserver ./cmd/nameserver/app.go
-        go build -o ./build/go-dfs-dataserver ./cmd/dataserver/app.go
-        go build -o ./build/go-dfs-client ./cmd/client/app.go
-        tar -czf go-dfs-server-amd64.tar.gz ./build
+        make build
+        tar -czf go-dfs-server-$(go env GOOS)-$(go env GOARCH).tar.gz ./_output/platforms/$(go env GOOS)/$(go env GOARCH)
     - name: Test
       run: go test -v ./tests
 
@@ -48,4 +45,4 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          go-dfs-server-amd64.tar.gz
+          go-dfs-server-*.tar.gz

@@ -26,7 +26,7 @@ if [ -z "$NETWORK" ]; then
 fi
 
 if [ ! -d "$DATA_ROOT" ]; then
-    echo "DATA_ROOT must be a existing directory"
+    echo "DATA_ROOT $DATA_ROOT must be a existing directory"
     exit 1
 fi
 
@@ -38,7 +38,7 @@ fi
 
 DFSAPP_DATA_SERVERS=""
 
-echo "launching $N_SERVERS servers"
+echo "launching $N_SERVERS servers with tag $TAG"
 for i in $(seq 0 "$(echo "$N_SERVERS - 1" | bc)"); do
     if [ ! -d "$DATA_ROOT/$i" ]; then
         mkdir -p "$DATA_ROOT/$i"
@@ -49,7 +49,7 @@ for i in $(seq 0 "$(echo "$N_SERVERS - 1" | bc)"); do
     if [ ! -d "$DATA_ROOT/$i/data" ]; then
         mkdir -p "$DATA_ROOT/$i/data"
     fi
-    docker stop "DataServer-$i" && docker rm "DataServer-$i"
+    docker stop "DataServer-$i" > /dev/null 2>&1 && docker rm "DataServer-$i" > /dev/null 2>&1
     docker run --rm -d \
            --name "DataServer-$i" \
            -v "$DATA_ROOT"/"$i"/config:/config \
@@ -60,13 +60,13 @@ for i in $(seq 0 "$(echo "$N_SERVERS - 1" | bc)"); do
     DFSAPP_DATA_SERVERS="$DFSAPP_DATA_SERVERS,DataServer-$i:$(echo "27904 + $i" | bc)"
 done
 
-if [ -d "$DATA_ROOT"/name ]; then
+if [ ! -d "$DATA_ROOT"/name ]; then
     mkdir -p "$DATA_ROOT"/name/config
     mkdir -p "$DATA_ROOT"/name/data
 fi
 
 echo "DFSAPP_DATA_SERVERS=$DFSAPP_DATA_SERVERS"
-docker stop "NameServer" && docker rm "NameServer"
+docker stop "NameServer" > /dev/null 2>&1 && docker rm "NameServer" > /dev/null 2>&1
 docker run --rm -d \
        --name "NameServer" \
        -v "$DATA_ROOT"/name/config:/config \

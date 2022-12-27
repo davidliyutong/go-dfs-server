@@ -3,4 +3,5 @@
 .idea
 .vscode
 
-/build/
+/_output
+/demo_data

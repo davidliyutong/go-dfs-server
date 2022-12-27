@@ -20,7 +20,7 @@ const DataServerDefaultVolume = "/data"
 const DataServerRole = "dataserver"
 
 type DataServerNetworkOpt struct {
-	Port     int
+	Port     int64
 	Endpoint string
 }
 
@@ -39,14 +39,14 @@ type DataServerDesc struct {
 }
 
 func NewDataServerOpt() DataServerOpt {
-	endpoint := utils.GetEndpointURL()
+	//endpoint := utils.GetEndpointURL()
 
 	return DataServerOpt{
 		Role: DataServerRole,
 		UUID: "",
 		Network: DataServerNetworkOpt{
 			Port:     DataServerDefaultPort,
-			Endpoint: endpoint,
+			Endpoint: "0.0.0.0:27904",
 		},
 		Volume: DataServerDefaultVolume,
 		Debug:  false,
@@ -55,7 +55,6 @@ func NewDataServerOpt() DataServerOpt {
 			Path:  "",
 		},
 	}
-
 }
 
 func NewDataServerDesc() DataServerDesc {
@@ -144,5 +143,10 @@ func (o *DataServerDesc) PostParse() {
 			lvl = log.InfoLevel
 		}
 		log.SetLevel(lvl)
+	}
+
+	if o.Opt.UUID == "" {
+		log.Infoln("uuid is empty")
+		os.Exit(1)
 	}
 }

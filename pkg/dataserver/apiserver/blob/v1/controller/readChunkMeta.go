@@ -6,35 +6,37 @@ import (
 	"net/http"
 )
 
-type readChunkMetaRequest struct {
-	Path string `form:"path" json:"path"`
-	ID   int64  `form:"id" json:"id"`
+type ReadChunkMetaRequest struct {
+	Path   string `form:"path" json:"path"`
+	ID     int64  `form:"id" json:"id"`
+	Offset uint64 `form:"offset" json:"offset"`
+	Size   uint64 `form:"size" json:"size"`
 }
 
-type readChunkMetaResponse struct {
-	Code int64  `json:"code"`
-	Msg  string `json:"msg"`
-	MD5  string `json:"md5"`
+type ReadChunkMetaResponse struct {
+	Code     int64  `json:"code"`
+	Msg      string `json:"msg"`
+	Checksum string `json:"checksum"`
 }
 
 func (c2 controller) ReadChunkMeta(c *gin.Context) {
-	var request readChunkMetaRequest
+	var request ReadChunkMetaRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, readChunkMetaResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, ReadChunkMetaResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, readChunkMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, ReadChunkMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			MD5String, err := c2.srv.NewBlobService().ReadChunkMeta(request.Path, request.ID)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, writeChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, ReadChunkMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, writeChunkResponse{Code: http.StatusOK, Msg: "", MD5: MD5String})
+				c.IndentedJSON(http.StatusOK, ReadChunkMetaResponse{Code: http.StatusOK, Msg: "", Checksum: MD5String})
 			}
 		}
-		log.Debug("blob/readChunkMeta ", request)
+		log.Debug("blob/ReadChunkMeta ", request)
 	}
 }

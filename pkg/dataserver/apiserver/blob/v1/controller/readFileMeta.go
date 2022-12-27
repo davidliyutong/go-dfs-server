@@ -6,34 +6,34 @@ import (
 	"net/http"
 )
 
-type readFileMetaRequest struct {
+type ReadFileMetaRequest struct {
 	Path string `form:"path" json:"path"`
 }
 
-type readFileMetaResponse struct {
-	Code int64            `json:"code"`
-	Msg  string           `json:"msg"`
-	MD5  map[int64]string `json:"md5"`
+type ReadFileMetaResponse struct {
+	Code      int64            `json:"code"`
+	Msg       string           `json:"msg"`
+	Checksums map[int64]string `json:"checksums"`
 }
 
 func (c2 controller) ReadFileMeta(c *gin.Context) {
-	var request readFileMetaRequest
+	var request ReadFileMetaRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, readFileMetaResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, ReadFileMetaResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, readFileMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, ReadFileMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			meta, err := c2.srv.NewBlobService().ReadFileMeta(request.Path)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, readFileMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, ReadFileMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, readFileMetaResponse{Code: http.StatusOK, Msg: "", MD5: meta.Content})
+				c.IndentedJSON(http.StatusOK, ReadFileMetaResponse{Code: http.StatusOK, Msg: "", Checksums: meta.Content})
 			}
 		}
-		log.Debug("blob/readFileMeta ", request)
+		log.Debug("blob/ReadFileMeta ", request)
 	}
 }

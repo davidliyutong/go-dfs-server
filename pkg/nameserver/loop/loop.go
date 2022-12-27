@@ -8,7 +8,7 @@ import (
 	"go-dfs-server/pkg/config"
 	sys "go-dfs-server/pkg/nameserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/nameserver/server"
-	ping "go-dfs-server/pkg/ping"
+	ping "go-dfs-server/pkg/ping/v1"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,7 +38,14 @@ func MainLoop(cmd *cobra.Command, args []string) {
 
 	/** 注册认证模块 **/
 	/** FIXME: timeout fixed to time.Second*86400 **/
-	ginJWT, _ := auth.RegisterAuthModule(ginEngine, server.APILayout.Auth.Login, server.APILayout.Auth.Refresh, time.Second*86400, auth.RepoAuthnBasic, auth.RepoAuthzBasic)
+	ginJWT, _ := auth.RegisterAuthModule(
+		ginEngine,
+		server.APILayout.Auth.Self,
+		server.APILayout.Auth.Login,
+		server.APILayout.Auth.Refresh,
+		time.Second*86400,
+		auth.RepoAuthnBasic,
+		auth.RepoAuthzBasic)
 
 	/** 路由组 **/
 	var v1API *gin.RouterGroup

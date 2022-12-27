@@ -6,12 +6,20 @@ import (
 	"net/http"
 )
 
+type ConfigResponse struct {
+	Code     int16  `json:"code"`
+	Msg      string `json:"msg"`
+	Port     int64  `json:"port"`
+	Endpoint string `json:"endpoint"`
+	Volume   string `json:"volume"`
+}
+
 func (o *controller) Config(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code":     200,
-		"msg":      "",
-		"port":     server.GlobalServerDesc.Opt.Network.Port,
-		"endpoint": server.GlobalServerDesc.Opt.Network.Endpoint,
-		"volume":   server.GlobalServerDesc.Opt.Volume,
+	c.JSON(http.StatusOK, ConfigResponse{
+		Code:     200,
+		Msg:      "",
+		Port:     server.GlobalServerDesc.Opt.Network.Port,
+		Endpoint: server.GlobalServerDesc.Opt.Network.Endpoint,
+		Volume:   server.GlobalServerDesc.Opt.Volume,
 	})
 }

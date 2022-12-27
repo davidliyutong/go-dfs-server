@@ -8,61 +8,69 @@ import (
 	blob "go-dfs-server/pkg/dataserver/apiserver/blob/v1/controller"
 	sys "go-dfs-server/pkg/dataserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/dataserver/server"
-	"go-dfs-server/pkg/ping"
+	ping "go-dfs-server/pkg/ping/v1"
 	"os"
 )
 
+func registerPingGroup(router *gin.Engine) {
+	grp := router.Group(server.APILayout.Ping)
+	controller := ping.NewController(nil)
+	grp.GET("", controller.Info)
+}
+
+func registerBlobGroup(router *gin.Engine) {
+	grp := router.Group(server.APILayout.V1.Blob.Self)
+	blobController := blob.NewController(nil)
+	grp.PUT(server.APILayout.V1.Blob.CreateChunk, blobController.CreateChunk)
+	grp.PUT(server.APILayout.V1.Blob.CreateDirectory, blobController.CreateDirectory)
+	grp.PUT(server.APILayout.V1.Blob.CreateFile, blobController.CreateFile)
+	grp.PUT(server.APILayout.V1.Blob.DeleteChunk, blobController.DeleteChunk)
+	grp.PUT(server.APILayout.V1.Blob.DeleteDirectory, blobController.DeleteDirectory)
+	grp.PUT(server.APILayout.V1.Blob.DeleteFile, blobController.DeleteFile)
+	grp.POST(server.APILayout.V1.Blob.LockFile, blobController.LockFile)
+	grp.GET(server.APILayout.V1.Blob.ReadChunk, blobController.ReadChunk)
+	grp.GET(server.APILayout.V1.Blob.ReadChunkMeta, blobController.ReadChunkMeta)
+	grp.GET(server.APILayout.V1.Blob.ReadFileMeta, blobController.ReadFileMeta)
+	grp.GET(server.APILayout.V1.Blob.ReadFileLock, blobController.ReadFileLock)
+	grp.POST(server.APILayout.V1.Blob.UnlockFile, blobController.UnlockFile)
+	grp.PUT(server.APILayout.V1.Blob.WriteChunk, blobController.WriteChunk)
+}
+
+func registerSysGroup(router *gin.Engine) {
+	grp := router.Group(server.APILayout.V1.Sys.Self)
+	sysController := sys.NewController(nil)
+	grp.GET(server.APILayout.V1.Sys.Info, sysController.Info)
+	grp.GET(server.APILayout.V1.Sys.UUID, sysController.UUID)
+	grp.GET(server.APILayout.V1.Sys.Config, sysController.Config)
+}
+
+func createServer() *gin.Engine {
+	router := gin.New()
+	registerPingGroup(router)
+	registerBlobGroup(router)
+	registerSysGroup(router)
+
+	return router
+}
+
 func MainLoop(cmd *cobra.Command, args []string) {
 	desc := config.NewDataServerDesc()
-	err := desc.Parse(cmd)
-	if err != nil {
+	if err := desc.Parse(cmd); err != nil {
 		log.Infoln("failed to parse configuration", err)
 		os.Exit(1)
+	} else {
+		desc.PostParse()
+		server.GlobalServerDesc = &desc                           //  设定全局Option
+		server.GlobalFileLocks = make(map[string]map[string]bool) // 设定全局文件锁数据库
 	}
-
-	if desc.Opt.UUID == "" {
-		log.Infoln("uuid is empty")
-		os.Exit(1)
-	}
-
-	desc.PostParse()
-	server.GlobalServerDesc = &desc                           //  设定全局Option
-	server.GlobalFileLocks = make(map[string]map[string]bool) // 设定全局文件锁数据库
 
 	/** End of server init */
-
 	log.Debugln("uuid:", desc.Opt.UUID)
 	log.Debugln("port:", desc.Opt.Network.Port)
 	log.Debugln("endpoint:", desc.Opt.Network.Endpoint)
 	log.Debugln("volume:", desc.Opt.Volume)
 
-	ginEngine := gin.New()
-
-	pingGroup := ginEngine.Group(server.APILayout.Ping)
-	pingController := ping.NewController(nil)
-	pingGroup.GET("", pingController.Info)
-
-	blobGroup := ginEngine.Group(server.APILayout.V1.Blob)
-	blobController := blob.NewController(nil)
-	blobGroup.PUT("createChunk", blobController.CreateChunk)
-	blobGroup.PUT("createDirectory", blobController.CreateDirectory)
-	blobGroup.PUT("createFile", blobController.CreateFile)
-	blobGroup.PUT("deleteChunk", blobController.DeleteChunk)
-	blobGroup.PUT("deleteDirectory", blobController.DeleteDirectory)
-	blobGroup.PUT("deleteFile", blobController.DeleteFile)
-	blobGroup.POST("lockFile", blobController.LockFile)
-	blobGroup.GET("readChunk", blobController.ReadChunk)
-	blobGroup.GET("readChunkMeta", blobController.ReadChunkMeta)
-	blobGroup.GET("readFileMeta", blobController.ReadFileMeta)
-	blobGroup.GET("readFileLock", blobController.ReadFileLock)
-	blobGroup.POST("unlockFile", blobController.UnlockFile)
-	blobGroup.PUT("writeChunk", blobController.WriteChunk)
-
-	sysGroup := ginEngine.Group(server.APILayout.V1.Sys)
-	sysController := sys.NewController(nil)
-	sysGroup.GET("info", sysController.Info)
-	sysGroup.GET("uuid", sysController.UUID)
-	sysGroup.GET("config", sysController.Config)
+	ginEngine := createServer()
 
 	log.Debugln()
 	_ = ginEngine.Run(server.GlobalServerDesc.Opt.Network.Endpoint)

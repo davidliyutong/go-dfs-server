@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"go-dfs-server/pkg/nameserver/apiserver/dataserver/v1/repo"
+	"go-dfs-server/pkg/nameserver/apiserver/blob/v1/repo"
 )
 
 type Service interface {

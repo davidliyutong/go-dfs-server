@@ -22,7 +22,14 @@ type User struct {
 	AccessKey string
 }
 
-func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath string, timeout time.Duration, authnFn func(string, string) bool, authzFn func(string) bool) (*jwt.GinJWTMiddleware, error) {
+func RegisterAuthModule(
+	engine *gin.Engine,
+	basePath string,
+	loginPath string,
+	tokenRefreshPath string,
+	timeout time.Duration,
+	authnFn func(string, string) bool,
+	authzFn func(string) bool) (*jwt.GinJWTMiddleware, error) {
 	ginJWT, _ := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:            server.GlobalServerDesc.Opt.Auth.Domain,
 		SigningAlgorithm: "HS256",
@@ -81,8 +88,9 @@ func RegisterAuthModule(engine *gin.Engine, loginPath string, tokenRefreshPath s
 
 	authStrategy := NewJWTStrategy(*ginJWT)
 
-	engine.POST(loginPath, authStrategy.LoginHandler)
-	engine.POST(tokenRefreshPath, authStrategy.RefreshHandler)
+	group := engine.Group(basePath)
+	group.POST(loginPath, authStrategy.LoginHandler)
+	group.POST(tokenRefreshPath, authStrategy.RefreshHandler)
 
 	return ginJWT, nil
 }

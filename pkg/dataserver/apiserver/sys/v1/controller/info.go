@@ -6,11 +6,18 @@ import (
 	"net/http"
 )
 
+type InfoResponse struct {
+	Code    int16  `json:"code"`
+	Msg     string `json:"msg"`
+	Role    string `json:"role"`
+	Version string `json:"version"`
+}
+
 func (o *controller) Info(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"msg":     "",
-		"role":    "dataserver",
-		"version": server.DataServerAPIVersion,
+	c.JSON(http.StatusOK, InfoResponse{
+		Code:    200,
+		Msg:     "",
+		Role:    "dataserver",
+		Version: server.DataServerAPIVersion,
 	})
 }

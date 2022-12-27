@@ -29,8 +29,8 @@ var APILayout = NameServerLayoutRoot{
 	Self: "/",
 	Auth: NameServerLayoutAuth{
 		Self:    "/auth",
-		Login:   "/auth/login",
-		Refresh: "/auth/refresh",
+		Login:   "login",
+		Refresh: "refresh",
 	},
 	Ping: "/ping",
 	V1: NameServerLayoutV1{

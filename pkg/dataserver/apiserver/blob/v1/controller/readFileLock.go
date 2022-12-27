@@ -6,34 +6,34 @@ import (
 	"net/http"
 )
 
-type readFileLockRequest struct {
+type ReadFileLockRequest struct {
 	Path string `form:"path" json:"path"`
 }
 
-type readFileLockResponse struct {
-	Code int64    `json:"code"`
-	Msg  string   `json:"msg"`
-	ID   []string `json:"id"`
+type ReadFileLockResponse struct {
+	Code     int64    `json:"code"`
+	Msg      string   `json:"msg"`
+	Sessions []string `json:"id"`
 }
 
 func (c2 controller) ReadFileLock(c *gin.Context) {
-	var request readFileLockRequest
+	var request ReadFileLockRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, readFileLockResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, ReadFileLockResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, readFileLockResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, ReadFileLockResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			locks, err := c2.srv.NewBlobService().ReadFileLock(request.Path)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, readFileLockResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, ReadFileLockResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, readFileLockResponse{Code: http.StatusOK, Msg: "", ID: locks})
+				c.IndentedJSON(http.StatusOK, ReadFileLockResponse{Code: http.StatusOK, Msg: "", Sessions: locks})
 			}
 		}
-		log.Debug("blob/readFileMeta ", request)
+		log.Debug("blob/readFileLock ", request)
 	}
 }

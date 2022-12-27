@@ -6,33 +6,35 @@ import (
 	"net/http"
 )
 
-type readChunkRequest struct {
-	Path string `form:"path" json:"path"`
-	ID   int64  `form:"id" json:"id"`
+type ReadChunkRequest struct {
+	Path   string `form:"path" json:"path"`
+	ID     int64  `form:"id" json:"id"`
+	Offset int64  `form:"offset" json:"offset"`
+	Size   int64  `form:"size" json:"size"`
 }
 
-type readChunkResponse struct {
+type ReadChunkResponse struct {
 	Code int64  `json:"code"`
 	Msg  string `json:"msg"`
 }
 
 func (c2 controller) ReadChunk(c *gin.Context) {
-	var request readChunkRequest
+	var request ReadChunkRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, readChunkResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, ReadChunkResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, readChunkResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, ReadChunkResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
-			err = c2.srv.NewBlobService().ReadChunk(request.Path, request.ID, c)
+			err = c2.srv.NewBlobService().ReadChunk(request.Path, request.ID, request.Offset, request.Size, c)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, writeChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, ReadChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			}
 		}
-		log.Debug("blob/writeChunk ", request)
+		log.Debug("blob/WriteChunk ", request)
 	}
 
 }

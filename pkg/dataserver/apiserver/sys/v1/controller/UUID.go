@@ -6,10 +6,16 @@ import (
 	"net/http"
 )
 
+type UUIDResponse struct {
+	Code int16  `json:"code"`
+	Msg  string `json:"msg"`
+	UUID string `json:"uuid"`
+}
+
 func (o *controller) UUID(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "",
-		"uuid": server.GlobalServerDesc.Opt.UUID,
+	c.JSON(http.StatusOK, UUIDResponse{
+		Code: 200,
+		Msg:  "",
+		UUID: server.GlobalServerDesc.Opt.UUID,
 	})
 }

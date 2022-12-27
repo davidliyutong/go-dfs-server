@@ -6,31 +6,31 @@ import (
 	"net/http"
 )
 
-type createFileRequest struct {
+type CreateFileRequest struct {
 	Path string `form:"path" json:"path"`
 }
 
-type createFileResponse struct {
+type CreateFileResponse struct {
 	Code int64  `json:"code"`
 	Msg  string `json:"msg"`
 }
 
 func (c2 controller) CreateFile(c *gin.Context) {
-	var request createFileRequest
+	var request CreateFileRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, createFileResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, CreateFileResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, createFileResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, CreateFileResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			err = c2.srv.NewBlobService().CreateFile(request.Path)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, createFileResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, CreateFileResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, createFileResponse{Code: http.StatusOK, Msg: ""})
+				c.IndentedJSON(http.StatusOK, CreateFileResponse{Code: http.StatusOK, Msg: ""})
 			}
 		}
 	}

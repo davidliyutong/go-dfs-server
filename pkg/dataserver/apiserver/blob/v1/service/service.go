@@ -8,6 +8,7 @@ import (
 	"go-dfs-server/pkg/dataserver/apiserver/blob/v1/repo"
 	"go-dfs-server/pkg/dataserver/server"
 	"go-dfs-server/pkg/utils"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -23,7 +24,7 @@ type BlobService interface {
 	DeleteFile(path string) error
 	GetChunkMD5(path string, id int64) (string, error)
 	LockFile(path string, id string) error
-	ReadChunk(path string, id int64, c *gin.Context) error
+	ReadChunk(path string, id int64, offset int64, size int64, c *gin.Context) error
 	ReadChunkMeta(path string, id int64) (string, error)
 	ReadFileLock(path string) ([]string, error)
 	ReadFileMeta(path string) (v1.BlobMetaData, error)
@@ -224,7 +225,7 @@ func (b *blobService) LockFile(path string, id string) error {
 	return err
 }
 
-func (b *blobService) ReadChunk(path string, id int64, c *gin.Context) error {
+func (b *blobService) ReadChunk(path string, id int64, offset int64, size int64, c *gin.Context) error {
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
 		return err
@@ -241,7 +242,38 @@ func (b *blobService) ReadChunk(path string, id int64, c *gin.Context) error {
 				c.Header("Content-Type", "application/octet-stream")
 				c.Header("Content-Transfer-Encoding", "binary")
 				c.Header("Cache-Control", "no-cache")
-				c.File(chunkPath)
+
+				if offset == 0 && size <= 0 {
+					c.File(chunkPath)
+				} else {
+					f, _ := os.OpenFile(chunkPath, os.O_RDONLY, 0666)
+					_, err = f.Seek(offset, io.SeekStart)
+					if err != nil {
+						return err
+					}
+					buf := make([]byte, 1024)
+
+					if size >= 0 {
+						reader := io.LimitReader(f, size)
+						_, err := reader.Read(buf)
+						if err != nil {
+							return err
+						}
+						_, err = c.Writer.Write(buf)
+						if err != nil {
+							return err
+						}
+					} else {
+						_, err := f.Read(buf)
+						if err != nil {
+							return err
+						}
+						_, err = c.Writer.Write(buf)
+						if err != nil {
+							return err
+						}
+					}
+				}
 				return nil
 			} else if os.IsNotExist(err) {
 				return errors.New(fmt.Sprintf("chunk %d dose not exists", id))

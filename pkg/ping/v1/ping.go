@@ -1,4 +1,4 @@
-package ping
+package v1
 
 import (
 	jwt "github.com/appleboy/gin-jwt/v2"
@@ -11,11 +11,15 @@ type Controller interface {
 	Info(c *gin.Context)
 }
 
+type PingResponse struct {
+	Message string `json:"message"`
+}
+
 func (o *controller) Info(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	log.Debugln("the claims is:", claims)
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"message": "pong",
+	c.IndentedJSON(http.StatusOK, PingResponse{
+		Message: "pong",
 	})
 }
 

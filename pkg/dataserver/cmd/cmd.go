@@ -21,7 +21,7 @@ var serveCmd = &cobra.Command{
 	Long: `serve start the dataserver using predefined configs, by the following order:
 
 1. path specified in --config flag
-2. path defined DFS_CONFIG environment variable
+2. path defined DFSAPP_CONFIG environment variable
 3. default location $HOME/.config/go-dfs-server/dataserver.yaml, /etc/go-dfs-server/dataserver.yaml, current directory
 
 The parameters in the configuration file will be overwritten by the following order:

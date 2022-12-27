@@ -7,8 +7,11 @@ import (
 	"github.com/spf13/viper"
 	"go-dfs-server/pkg/utils"
 	"gopkg.in/yaml.v2"
+	"net"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 )
 
 var NameServerDefaultConfig = path.Join(userHomeDir, ".config/go-dfs-server/"+NameServerDefaultConfigName+".yaml")
@@ -33,7 +36,7 @@ type NameServerOpt struct {
 	Auth        AuthOpt
 	Debug       bool
 	Log         LogOpt
-	DataServers []string
+	DataServers []RegisteredDataServer
 }
 
 type NameServerDesc struct {
@@ -43,6 +46,41 @@ type NameServerDesc struct {
 
 func (o *NameServerOpt) AuthIsEnabled() bool {
 	return o.Auth.AccessKey != "" && o.Auth.SecretKey != ""
+}
+
+type RegisteredDataServer struct {
+	UUID    string
+	Address string
+	Port    int64
+	UseTLS  bool
+}
+
+func getRegisteredDataServerFromEnv() []RegisteredDataServer {
+	defaultValue := []RegisteredDataServer{
+		{UUID: "", Address: "example.com", Port: 27904, UseTLS: false},
+		{UUID: "", Address: "example.com", Port: 27905, UseTLS: false},
+		{UUID: "", Address: "127.0.0.1", Port: 27906, UseTLS: true},
+	}
+	if os.Getenv("DFSAPP_DATA_SERVERS") == "" {
+		return defaultValue
+	} else {
+		parsedValue := make([]RegisteredDataServer, 0)
+		servers := strings.Split(os.Getenv("DFS_DATASERVERS"), ",")
+		for _, server := range servers {
+			addr, port, err := net.SplitHostPort(server)
+			if err != nil {
+				continue
+			} else {
+				portDigit, _ := strconv.Atoi(port)
+				parsedValue = append(parsedValue, RegisteredDataServer{UUID: "", Address: addr, Port: int64(portDigit), UseTLS: false})
+			}
+		}
+		if len(parsedValue) <= 0 {
+			return defaultValue
+		} else {
+			return parsedValue
+		}
+	}
 }
 
 func NewNameServerOpt() NameServerOpt {
@@ -66,6 +104,7 @@ func NewNameServerOpt() NameServerOpt {
 			Level: "info",
 			Path:  "",
 		},
+		DataServers: getRegisteredDataServerFromEnv(),
 	}
 }
 

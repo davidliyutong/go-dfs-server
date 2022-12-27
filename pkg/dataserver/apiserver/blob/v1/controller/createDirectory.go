@@ -6,31 +6,31 @@ import (
 	"net/http"
 )
 
-type createDirectoryRequest struct {
+type CreateDirectoryRequest struct {
 	Path string `form:"path" json:"path"`
 }
 
-type createDirectoryResponse struct {
+type CreateDirectoryResponse struct {
 	Code int64  `json:"code"`
 	Msg  string `json:"msg"`
 }
 
 func (c2 controller) CreateDirectory(c *gin.Context) {
-	var request createDirectoryRequest
+	var request CreateDirectoryRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
 		log.Debug(err)
-		c.IndentedJSON(http.StatusBadRequest, createDirectoryResponse{Code: http.StatusBadRequest, Msg: "failed"})
+		c.IndentedJSON(http.StatusBadRequest, CreateDirectoryResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
 		if request.Path == "" {
-			c.IndentedJSON(http.StatusBadRequest, createDirectoryResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
+			c.IndentedJSON(http.StatusBadRequest, CreateDirectoryResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			err = c2.srv.NewBlobService().CreateDirectory(request.Path)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, createDirectoryResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, CreateDirectoryResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, createDirectoryResponse{Code: http.StatusOK, Msg: ""})
+				c.IndentedJSON(http.StatusOK, CreateDirectoryResponse{Code: http.StatusOK, Msg: ""})
 			}
 		}
 		log.Debug("blob/CreateDirectory ", request)

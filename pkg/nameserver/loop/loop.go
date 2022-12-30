@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"go-dfs-server/pkg/auth"
 	"go-dfs-server/pkg/config"
+	blob2 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/controller"
+	repo "go-dfs-server/pkg/nameserver/apiserver/blob/v1/repo/memory"
 	sys "go-dfs-server/pkg/nameserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/nameserver/server"
 	ping "go-dfs-server/pkg/ping/v1"
@@ -25,6 +27,26 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	}
 	desc.PostParse()
 	server.GlobalServerDesc = &desc //  设定全局Option
+	server.BlobDataServerManger = server.NewDataServerManager(server.GlobalServerDesc)
+	server.BlobSessionManager = server.NewSessionManager()
+	server.BlobLockManager = server.NewLockManager(server.GlobalServerDesc.Opt.Volume)
+
+	stat, err := server.BlobDataServerManger.UUIDProbe()
+	if err != nil {
+		log.Infoln("not all data server is ready")
+	} else {
+		if len(stat) > 0 {
+			err := server.GlobalServerDesc.SaveConfig()
+			if err != nil {
+				log.Warningln("failed to save configuration")
+			} else {
+				log.Infoln("writing updated UUID info to file")
+			}
+		} else {
+			log.Infoln("all data server is ready")
+		}
+
+	}
 
 	log.Debugln("uuid:", desc.Opt.UUID)
 	log.Debugln("port:", desc.Opt.Network.Port)
@@ -32,6 +54,7 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	log.Debugln("volume:", desc.Opt.Volume)
 	log.Debugln("accessKey:", desc.Opt.Auth.AccessKey)
 	log.Debugln("secretKey:", desc.Opt.Auth.SecretKey)
+	log.Debugln("dataServers:", server.BlobDataServerManger.ListServers())
 
 	/** 创建Gin Server **/
 	ginEngine := gin.New()
@@ -56,6 +79,7 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	} else {
 		v1API = ginEngine.Group(server.APILayout.V1.Self)
 	}
+	//v1API = ginEngine.Group(server.APILayout.V1.Self)
 
 	/** /ping 永远是不认证的 **/
 	pingGroup := ginEngine.Group(server.APILayout.Ping)
@@ -63,9 +87,30 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	pingGroup.GET("", pingController.Info)
 
 	/** /v1/sys **/
-	sysController := sys.NewController(nil)
 	sysPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Sys)
-	v1API.GET(sysPath, sysController.Info)
+	sysGroup := v1API.Group(sysPath)
+	sysController := sys.NewController(nil)
+	sysGroup.GET("info", sysController.Info)
+	sysGroup.GET("session", sysController.GetSession)
+	sysGroup.GET("sessions", sysController.GetSessions)
+
+	blobPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Blob)
+	blobGroup := v1API.Group(blobPath)
+	blobController := blob2.NewController(repo.Repo(server.BlobDataServerManger, server.BlobSessionManager, server.BlobLockManager))
+	blobGroup.POST("close", blobController.Close)
+	blobGroup.POST("flush", blobController.Flush)
+	blobGroup.POST("lock", blobController.Lock)
+	blobGroup.GET("lock", blobController.GetLock)
+	blobGroup.GET("ls", blobController.Ls)
+	blobGroup.POST("mkdir", blobController.Mkdir)
+	blobGroup.POST("open", blobController.Open)
+	blobGroup.GET("read", blobController.Read)
+	blobGroup.POST("rm", blobController.Rm)
+	blobGroup.POST("rmdir", blobController.Rmdir)
+	blobGroup.POST("seek", blobController.Seek)
+	blobGroup.POST("truncate", blobController.Truncate)
+	blobGroup.POST("unlock", blobController.Unlock)
+	blobGroup.POST("write", blobController.Write)
 
 	_ = ginEngine.Run(server.GlobalServerDesc.Opt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerDesc.Opt.Network.Port))
 

@@ -16,4 +16,5 @@ func (o *controller) Info(c *gin.Context) {
 		"accessKey": user.(*auth.User).AccessKey,
 		"message":   "OK",
 	})
+	log.Debug("blob/info ")
 }

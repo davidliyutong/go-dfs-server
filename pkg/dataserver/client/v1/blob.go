@@ -355,10 +355,10 @@ func (c *dataServerClient) BlobReadFileLock(path string) ([]string, error) {
 	}
 }
 
-func (c *dataServerClient) BlobReadFileMeta(path string) (map[int64]string, error) {
+func (c *dataServerClient) BlobReadFileMeta(path string) (map[int64]int64, map[int64]string, error) {
 	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.ReadFileMeta)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	payload := url.Values{
@@ -369,7 +369,7 @@ func (c *dataServerClient) BlobReadFileMeta(path string) (map[int64]string, erro
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -382,20 +382,20 @@ func (c *dataServerClient) BlobReadFileMeta(path string) (map[int64]string, erro
 	var result blob.ReadFileMetaResponse
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	} else {
 		if result.Code != http.StatusOK {
-			return nil, errors.New(result.Msg)
+			return nil, nil, errors.New(result.Msg)
 		} else {
-			return result.Checksums, nil
+			return result.Versions, result.Checksums, nil
 		}
 	}
 }
 
-func (c *dataServerClient) BlobReadChunkMeta(path string, id int64) (string, error) {
+func (c *dataServerClient) BlobReadChunkMeta(path string, id int64) (int64, string, error) {
 	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.ReadChunkMeta)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	}
 
 	payload := url.Values{
@@ -407,7 +407,7 @@ func (c *dataServerClient) BlobReadChunkMeta(path string, id int64) (string, err
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -420,12 +420,12 @@ func (c *dataServerClient) BlobReadChunkMeta(path string, id int64) (string, err
 	var result blob.ReadChunkMetaResponse
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	} else {
 		if result.Code != http.StatusOK {
-			return "", errors.New(result.Msg)
+			return -1, "", errors.New(result.Msg)
 		} else {
-			return result.Checksum, nil
+			return result.Version, result.Checksum, nil
 		}
 	}
 }
@@ -470,7 +470,7 @@ func (c *dataServerClient) BlobUnlockFile(path string) error {
 	}
 }
 
-func (c *dataServerClient) BlobWriteChunk(path string, id int64, data io.Reader) (string, error) {
+func (c *dataServerClient) BlobWriteChunk(path string, id int64, version int64, data io.Reader) (string, error) {
 	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.WriteChunk)
 	if err != nil {
 		return "", err
@@ -490,8 +490,14 @@ func (c *dataServerClient) BlobWriteChunk(path string, id int64, data io.Reader)
 		return "", err
 	}
 
-	w3, _ := bw.CreateFormFile("file", fmt.Sprintf("%d.dat", id))
-	_, _ = io.Copy(w3, data)
+	w3, _ := bw.CreateFormField("version")
+	_, err = w3.Write([]byte(strconv.FormatInt(version, 10)))
+	if err != nil {
+		return "", err
+	}
+
+	w4, _ := bw.CreateFormFile("file", fmt.Sprintf("%d.dat", id))
+	_, _ = io.Copy(w4, data)
 
 	err = bw.Close()
 	if err != nil {

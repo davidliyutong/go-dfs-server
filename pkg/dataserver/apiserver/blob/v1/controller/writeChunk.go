@@ -7,8 +7,9 @@ import (
 )
 
 type WriteChunkRequest struct {
-	Path string `form:"path" json:"path"`
-	ID   int64  `form:"id" json:"id"`
+	Path    string `form:"path" json:"path"`
+	ID      int64  `form:"id" json:"id"`
+	Version int64  `form:"version" json:"version"`
 }
 
 type WriteChunkResponse struct {
@@ -27,30 +28,20 @@ func (c2 controller) WriteChunk(c *gin.Context) {
 	} else {
 		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, WriteChunkResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
-		} else {
-			//err = c2.srv.NewBlobService().WriteChunk(request.Path, request.Session)
-			file, err := c.FormFile("file")
-			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
-			} else {
-				err = c2.srv.NewBlobService().WriteChunk(request.Path, request.ID, c, file)
-				if err != nil {
-					c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
-				} else {
-					MD5String, err := c2.srv.NewBlobService().GetChunkMD5(request.Path, request.ID)
-					if err != nil {
-						c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
-					} else {
-						err = c2.srv.NewBlobService().UpdateMeta(request.Path, request.ID, MD5String)
-						if err != nil {
-							c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
-						} else {
-							c.IndentedJSON(http.StatusOK, WriteChunkResponse{Code: http.StatusOK, Msg: "", Checksum: MD5String})
-						}
-					}
-				}
-			}
+			return
 		}
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+			return
+		}
+		MD5String, err := c2.srv.NewBlobService().WriteChunk(request.Path, request.ID, request.Version, c, file)
+		if err != nil {
+			c.IndentedJSON(http.StatusInternalServerError, WriteChunkResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+			return
+		}
+		c.IndentedJSON(http.StatusOK, WriteChunkResponse{Code: http.StatusOK, Msg: "", Checksum: MD5String})
+
 		log.Debug("blob/WriteChunk ", request)
 	}
 

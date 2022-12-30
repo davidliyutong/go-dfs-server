@@ -16,6 +16,7 @@ type ReadChunkMetaRequest struct {
 type ReadChunkMetaResponse struct {
 	Code     int64  `json:"code"`
 	Msg      string `json:"msg"`
+	Version  int64  `json:"version"`
 	Checksum string `json:"checksum"`
 }
 
@@ -30,11 +31,11 @@ func (c2 controller) ReadChunkMeta(c *gin.Context) {
 		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, ReadChunkMetaResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
-			MD5String, err := c2.srv.NewBlobService().ReadChunkMeta(request.Path, request.ID)
+			version, MD5String, err := c2.srv.NewBlobService().ReadChunkMeta(request.Path, request.ID)
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, ReadChunkMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, ReadChunkMetaResponse{Code: http.StatusOK, Msg: "", Checksum: MD5String})
+				c.IndentedJSON(http.StatusOK, ReadChunkMetaResponse{Code: http.StatusOK, Msg: "", Version: version, Checksum: MD5String})
 			}
 		}
 		log.Debug("blob/ReadChunkMeta ", request)

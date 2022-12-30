@@ -14,10 +14,6 @@ type sysService struct {
 	repo repo.Repo
 }
 
-//func (s sysService) Info() (string, error) {
-//	panic("implement me")
-//}
-
 func newSysService(repo repo.Repo) SysService {
 	return &sysService{repo: repo}
 }

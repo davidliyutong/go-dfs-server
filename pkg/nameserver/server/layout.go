@@ -1,10 +1,16 @@
 package server
 
-import "go-dfs-server/pkg/config"
+import (
+	"go-dfs-server/pkg/config"
+)
 
 var GlobalServerDesc *config.NameServerDesc
+var BlobDataServerManger DataServerManager
+var BlobSessionManager SessionManager
+var BlobLockManager LockManager
 
 const NameServerAPIVersion = "v1"
+const NameServerNumOfReplicas = 3
 
 type NameServerLayoutAuth struct {
 	Self    string
@@ -23,6 +29,14 @@ type NameServerLayoutRoot struct {
 	Auth NameServerLayoutAuth
 	Ping string
 	V1   NameServerLayoutV1
+}
+
+type NameServerLayoutBlob struct {
+}
+
+type NameServerLayoutSys struct {
+	Self string
+	Info string
 }
 
 var APILayout = NameServerLayoutRoot{

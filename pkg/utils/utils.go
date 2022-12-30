@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
@@ -10,14 +11,18 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/sethvargo/go-password/password"
 	log "github.com/sirupsen/logrus"
+	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
 	"gopkg.in/yaml.v3"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 func MustGenerateAuthKeys() (accessKey string, secretKey string) {
@@ -203,6 +208,11 @@ func GetFileState(path string) bool {
 	return err == nil
 }
 
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func GetFileMD5(path string) (string, error) {
 	//Initialize variable returnMD5String now in case an error has to be returned
 	var returnMD5String string
@@ -232,7 +242,71 @@ func GetFileMD5(path string) (string, error) {
 	return returnMD5String, nil
 }
 
+func GetBufferMD5(data []byte) (string, error) {
+	//Initialize variable returnMD5String now in case an error has to be returned
+	var returnMD5String string
+	hash := md5.New()
+	//Copy the file in the hash interface and check for any error
+	if _, err := io.Copy(hash, bytes.NewReader(data)); err != nil {
+		return returnMD5String, err
+	}
+	//Info the 16 bytes hash
+	hashInBytes := hash.Sum(nil)[:16]
+	//Convert the bytes to a string
+	returnMD5String = hex.EncodeToString(hashInBytes)
+	return returnMD5String, nil
+}
+
 func MustGenerateUUID() string {
 	ul := uuid.NewV4()
 	return ul.String()
+}
+
+var (
+	once sync.Once
+)
+
+func SelectRandomNFromArray(arr []interface{}, n int64) []interface{} {
+	once.Do(func() {
+		rand.Seed(time.Now().Unix())
+	})
+	ret := make([]interface{}, n)
+	perm := rand.Perm(len(arr))[:3]
+	for i, randIndex := range perm {
+		ret[i] = arr[randIndex]
+	}
+	return ret
+}
+
+func HasError(arr []error) bool {
+	for _, err := range arr {
+		if err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func MaxInt64(x int64, y int64) int64 {
+	if x >= y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func MinInt64(x int64, y int64) int64 {
+	if x < y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func GetChunkID(offset int64) int64 {
+	return offset / v1.DefaultBlobChunkSize
+}
+
+func GetChunkOffset(offset int64) int64 {
+	return offset % v1.DefaultBlobChunkSize
 }

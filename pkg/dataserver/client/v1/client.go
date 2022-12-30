@@ -32,10 +32,11 @@ type DataServerClient interface {
 	BlobLockFile(path string, session string) error
 	BlobReadChunk(path string, id int64) (io.ReadCloser, error)
 	BlobReadFileLock(path string) ([]string, error)
-	BlobReadFileMeta(path string) (map[int64]string, error)
-	BlobReadChunkMeta(path string, id int64) (string, error)
+	BlobReadFileMeta(path string) (map[int64]int64, map[int64]string, error)
+	BlobReadChunkMeta(path string, id int64) (int64, string, error)
 	BlobUnlockFile(path string) error
-	BlobWriteChunk(path string, id int64, data io.Reader) (string, error)
+	BlobWriteChunk(path string, id int64, version int64, data io.Reader) (string, error)
+	SetUUID(string)
 	SysRole() (string, error)
 	SysVolume() (string, error)
 	SysUUID() (string, error)
@@ -116,4 +117,8 @@ func (c *dataServerClient) Ping() error {
 			return errors.New("response not pong")
 		}
 	}
+}
+
+func (c *dataServerClient) SetUUID(uuid string) {
+	c.UUID = uuid
 }

@@ -13,6 +13,7 @@ type ReadFileMetaRequest struct {
 type ReadFileMetaResponse struct {
 	Code      int64            `json:"code"`
 	Msg       string           `json:"msg"`
+	Versions  map[int64]int64  `json:"version"`
 	Checksums map[int64]string `json:"checksums"`
 }
 
@@ -31,7 +32,7 @@ func (c2 controller) ReadFileMeta(c *gin.Context) {
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, ReadFileMetaResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, ReadFileMetaResponse{Code: http.StatusOK, Msg: "", Checksums: meta.Content})
+				c.IndentedJSON(http.StatusOK, ReadFileMetaResponse{Code: http.StatusOK, Msg: "", Versions: meta.Versions, Checksums: meta.ChunkChecksums})
 			}
 		}
 		log.Debug("blob/ReadFileMeta ", request)

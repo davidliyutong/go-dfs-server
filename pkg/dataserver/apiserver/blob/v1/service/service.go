@@ -22,15 +22,13 @@ type BlobService interface {
 	DeleteChunk(path string, id int64) error
 	DeleteDirectory(path string) error
 	DeleteFile(path string) error
-	GetChunkMD5(path string, id int64) (string, error)
 	LockFile(path string, id string) error
 	ReadChunk(path string, id int64, offset int64, size int64, c *gin.Context) error
-	ReadChunkMeta(path string, id int64) (string, error)
+	ReadChunkMeta(path string, id int64) (int64, string, error)
 	ReadFileLock(path string) ([]string, error)
 	ReadFileMeta(path string) (v1.BlobMetaData, error)
 	UnlockFile(path string) error
-	UpdateMeta(path string, id int64, data interface{}) error
-	WriteChunk(path string, id int64, c *gin.Context, file *multipart.FileHeader) error
+	WriteChunk(path string, id int64, version int64, c *gin.Context, file *multipart.FileHeader) (string, error)
 }
 
 type blobService struct {
@@ -175,7 +173,7 @@ func (b *blobService) DeleteFile(path string) error {
 	}
 }
 
-func (b *blobService) GetChunkMD5(path string, id int64) (string, error) {
+func (b *blobService) getChunkMD5(path string, id int64) (string, error) {
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
 		return "", err
@@ -238,9 +236,9 @@ func (b *blobService) ReadChunk(path string, id int64, offset int64, size int64,
 			_, err := os.Stat(chunkPath)
 			if err == nil {
 				c.Writer.WriteHeader(http.StatusOK)
-				c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%d.dat", id))
-				c.Header("Content-Type", "application/octet-stream")
-				c.Header("Content-Transfer-Encoding", "binary")
+				c.Header("ChunkChecksums-Disposition", fmt.Sprintf("attachment; filename=%d.dat", id))
+				c.Header("ChunkChecksums-Type", "application/octet-stream")
+				c.Header("ChunkChecksums-Transfer-Encoding", "binary")
 				c.Header("Cache-Control", "no-cache")
 
 				if offset == 0 && size <= 0 {
@@ -291,16 +289,17 @@ func (b *blobService) ReadChunk(path string, id int64, offset int64, size int64,
 
 }
 
-func (b *blobService) ReadChunkMeta(path string, id int64) (string, error) {
+func (b *blobService) ReadChunkMeta(path string, id int64) (int64, string, error) {
 	meta, err := b.ReadFileMeta(path)
 	if err != nil {
-		return "", err
+		return -1, "", err
 	} else {
-		MD5String, ok := meta.Content[id]
-		if !ok {
-			return "", errors.New("no meta data found for this chunk id")
+		MD5String, ok1 := meta.ChunkChecksums[id]
+		version, ok2 := meta.Versions[id]
+		if !ok1 || !ok2 {
+			return -1, "", errors.New("no meta data found for this chunk id")
 		} else {
-			return MD5String, nil
+			return version, MD5String, nil
 		}
 	}
 }
@@ -359,42 +358,6 @@ func (b *blobService) ReadFileMeta(path string) (v1.BlobMetaData, error) {
 	}
 }
 
-func (b *blobService) UpdateMeta(path string, id int64, data interface{}) error {
-	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
-	if err != nil {
-		return err
-	}
-	_, err = os.Stat(filePath)
-	if err == nil {
-		isFile := utils.GetFileState(filePath)
-		if isFile {
-			metaPath := utils.GetMetaPath(filePath)
-			meta := v1.NewBlobMetaData(metaPath)
-
-			err = meta.Load()
-			if err != nil {
-				return errors.New("cannot load metadata")
-			} else {
-
-				meta.Content[id] = fmt.Sprintf("%v", data)
-			}
-
-			err = meta.Dump()
-			if err != nil {
-				return errors.New("cannot save metadata")
-			} else {
-				return nil
-			}
-		} else {
-			return errors.New("not a file")
-		}
-	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
-	}
-	return err
-
-}
-
 func (b *blobService) UnlockFile(path string) error {
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
@@ -416,7 +379,7 @@ func (b *blobService) UnlockFile(path string) error {
 	}
 }
 
-func (b *blobService) WriteChunk(path string, id int64, c *gin.Context, file *multipart.FileHeader) error {
+func (b *blobService) updateMeta(path string, id int64, version int64, data interface{}) error {
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
 		return err
@@ -425,19 +388,68 @@ func (b *blobService) WriteChunk(path string, id int64, c *gin.Context, file *mu
 	if err == nil {
 		isFile := utils.GetFileState(filePath)
 		if isFile {
-			chunkPath := utils.GetChunkPath(filePath, id)
-			if err := c.SaveUploadedFile(file, chunkPath); err != nil {
-				return err
+			metaPath := utils.GetMetaPath(filePath)
+			meta := v1.NewBlobMetaData(metaPath)
+
+			err = meta.Load()
+			if err != nil {
+				return errors.New("cannot load metadata")
+			} else {
+				meta.Versions[id] = version
+				meta.ChunkChecksums[id] = fmt.Sprintf("%v", data)
+			}
+
+			err = meta.Dump()
+			if err != nil {
+				return errors.New("cannot save metadata")
 			} else {
 				return nil
 			}
 		} else {
-			return errors.New("destination not a file")
+			return errors.New("not a file")
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file dose not exists")
+		return errors.New("file or directory does not exist")
+	}
+	return err
+
+}
+
+func (b *blobService) WriteChunk(path string, id int64, version int64, c *gin.Context, file *multipart.FileHeader) (string, error) {
+	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
+	if err != nil {
+		return "", err
+	}
+	_, err = os.Stat(filePath)
+	if err == nil {
+		isFile := utils.GetFileState(filePath)
+		if isFile {
+			metaPath := utils.GetMetaPath(filePath)
+			meta := v1.NewBlobMetaData(metaPath)
+			err = meta.Load()
+			if oldVersion, ok := meta.Versions[id]; ok {
+				if oldVersion >= version {
+					return "", errors.New("version conflict")
+				}
+			}
+
+			chunkPath := utils.GetChunkPath(filePath, id)
+			if err := c.SaveUploadedFile(file, chunkPath); err != nil {
+				return "", err
+			} else {
+				MD5String, err := b.getChunkMD5(path, id)
+				if err != nil {
+					return "", err
+				}
+				return MD5String, b.updateMeta(path, id, version, MD5String)
+			}
+		} else {
+			return "", errors.New("destination not a file")
+		}
+	} else if os.IsNotExist(err) {
+		return "", errors.New("file dose not exists")
 	} else {
-		return err
+		return "", err
 	}
 }
 

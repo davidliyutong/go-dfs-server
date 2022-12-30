@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -65,7 +66,7 @@ func getRegisteredDataServerFromEnv() []RegisteredDataServer {
 		return defaultValue
 	} else {
 		parsedValue := make([]RegisteredDataServer, 0)
-		servers := strings.Split(os.Getenv("DFS_DATASERVERS"), ",")
+		servers := strings.Split(os.Getenv("DFSAPP_DATA_SERVERS"), ",")
 		for _, server := range servers {
 			addr, port, err := net.SplitHostPort(server)
 			if err != nil {
@@ -203,4 +204,20 @@ func (o *NameServerDesc) PostParse() {
 		}
 		log.SetLevel(lvl)
 	}
+}
+
+func (o *NameServerDesc) SaveConfig() error {
+	f, err := os.OpenFile(o.Viper.ConfigFileUsed(), os.O_CREATE|os.O_RDWR, 0644)
+	defer func() { _ = f.Close() }()
+	if err != nil {
+		return err
+	}
+	w := bufio.NewWriter(f)
+	s, _ := yaml.Marshal(o.Opt)
+	_, err = w.Write(s)
+	if err != nil {
+		return err
+	}
+	_ = w.Flush()
+	return nil
 }

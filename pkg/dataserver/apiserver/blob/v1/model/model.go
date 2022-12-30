@@ -8,14 +8,16 @@ import (
 )
 
 type BlobMetaData struct {
-	Path    string
-	Content map[int64]string
+	Path           string           `json:"path"`
+	Versions       map[int64]int64  `json:"versions"`
+	ChunkChecksums map[int64]string `json:"chunk_checksums"`
 }
 
 func NewBlobMetaData(path string) BlobMetaData {
 	return BlobMetaData{
-		Path:    path,
-		Content: make(map[int64]string),
+		Path:           path,
+		Versions:       make(map[int64]int64),
+		ChunkChecksums: make(map[int64]string),
 	}
 }
 
@@ -31,9 +33,9 @@ func (o *BlobMetaData) Load() error {
 		}
 	}(jsonFile)
 	buffer, _ := io.ReadAll(jsonFile)
-	err = json.Unmarshal(buffer, &o.Content)
-	if o.Content == nil {
-		o.Content = make(map[int64]string)
+	err = json.Unmarshal(buffer, o)
+	if o.ChunkChecksums == nil {
+		o.ChunkChecksums = make(map[int64]string)
 	}
 	return err
 }
@@ -50,6 +52,6 @@ func (o *BlobMetaData) Dump() error {
 		}
 	}(filePtr)
 	encoder := json.NewEncoder(filePtr)
-	err = encoder.Encode(o.Content)
+	err = encoder.Encode(o)
 	return err
 }

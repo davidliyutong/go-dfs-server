@@ -7,17 +7,47 @@ import (
 )
 
 type dataServerManager struct {
-	desc    *config.NameServerDesc
-	clients []interface{}
+	desc         *config.NameServerDesc
+	clients      []interface{}
+	namedClients map[string]interface{}
+}
+
+func (d *dataServerManager) GetAllClients() []interface{} {
+	return d.clients
+}
+
+func (d *dataServerManager) GetClient(uuid string) (interface{}, error) {
+	client, ok := d.namedClients[uuid]
+	if !ok {
+		return nil, errors.New("client not found")
+	} else {
+		return client, nil
+	}
+}
+
+func (d *dataServerManager) GetClients(uuids []string) ([]interface{}, error) {
+	clients := make([]interface{}, 0, 3)
+	var errOccurred = false
+	for _, uuid := range uuids {
+		client, err := d.GetClient(uuid)
+		if err != nil {
+			errOccurred = true
+		} else {
+			clients = append(clients, client)
+		}
+	}
+	if errOccurred {
+		return clients, errors.New("failed to find some clients")
+	} else {
+		return clients, nil
+	}
 }
 
 func (d *dataServerManager) ListServers() []config.RegisteredDataServer {
-	//TODO implement me
 	return d.desc.Opt.DataServers
 }
 
 func (d *dataServerManager) AlivenessProbe() (map[string]bool, error) {
-	//TODO implement me
 	stat := make(map[string]bool, len(d.clients))
 	var flag bool
 	for _, client := range d.clients {
@@ -35,21 +65,26 @@ func (d *dataServerManager) AlivenessProbe() (map[string]bool, error) {
 }
 
 func (d *dataServerManager) UUIDProbe() (map[string]bool, error) {
-	//TODO implement me
 	stat := make(map[string]bool, len(d.clients))
-	var flag bool
-	for _, client := range d.clients {
+	var flag = true
+	for idx, client := range d.clients {
+		if client == nil {
+			continue
+		}
 		serverUUID, err := client.(v1.DataServerClient).SysUUID()
 		if err != nil {
 			flag = false
-			stat[client.(v1.DataServerClient).GetUUID()] = false
 			continue
 		}
-		if serverUUID != client.(v1.DataServerClient).GetUUID() {
+		if serverUUID == "" || serverUUID != client.(v1.DataServerClient).GetUUID() && client.(v1.DataServerClient).GetUUID() != "" {
 			flag = false
-			stat[client.(v1.DataServerClient).GetUUID()] = false
 		} else {
-			stat[client.(v1.DataServerClient).GetUUID()] = true
+			if client.(v1.DataServerClient).GetUUID() == "" {
+				stat[serverUUID] = true
+				client.(v1.DataServerClient).SetUUID(serverUUID)
+				d.desc.Opt.DataServers[idx].UUID = serverUUID
+				d.namedClients[serverUUID] = client
+			}
 		}
 	}
 	if flag {
@@ -63,12 +98,20 @@ type DataServerManager interface {
 	ListServers() []config.RegisteredDataServer
 	AlivenessProbe() (map[string]bool, error)
 	UUIDProbe() (map[string]bool, error)
+	GetAllClients() []interface{}
+	GetClient(uuid string) (interface{}, error)
+	GetClients(uuid []string) ([]interface{}, error)
 }
 
 func NewDataServerManager(desc *config.NameServerDesc) DataServerManager {
-	clients := make([]interface{}, len(desc.Opt.DataServers))
+	clients := make([]interface{}, 0)
+	namedClients := make(map[string]interface{})
 	for _, server := range desc.Opt.DataServers {
-		clients = append(clients, v1.NewDataServerClient(server.UUID, server.Address, server.Port, false))
+		newClient := v1.NewDataServerClient(server.UUID, server.Address, server.Port, false)
+		clients = append(clients, newClient)
+		if server.UUID != "" {
+			namedClients[server.UUID] = newClient
+		}
 	}
-	return &dataServerManager{desc: desc, clients: clients}
+	return &dataServerManager{desc: desc, clients: clients, namedClients: namedClients}
 }

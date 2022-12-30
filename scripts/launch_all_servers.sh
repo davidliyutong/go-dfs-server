@@ -56,6 +56,7 @@ for i in $(seq 0 "$(echo "$N_SERVERS - 1" | bc)"); do
            -v "$DATA_ROOT"/"$i"/data:/data \
            -p "$(echo "27904 + $i" | bc)":27904 \
            --net="$NETWORK" \
+           -e "DFSAPP_DEBUG=1" \
            davidliyutong/go-dfs-dataserver:"$TAG"
     DFSAPP_DATA_SERVERS="$DFSAPP_DATA_SERVERS,DataServer-$i:$(echo "27904 + $i" | bc)"
 done

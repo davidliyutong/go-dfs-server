@@ -43,6 +43,7 @@ type NameServerOpt struct {
 type NameServerDesc struct {
 	Opt   NameServerOpt
 	Viper *viper.Viper
+	UUID  string
 }
 
 func (o *NameServerOpt) AuthIsEnabled() bool {
@@ -113,6 +114,7 @@ func NewNameServerDesc() NameServerDesc {
 	return NameServerDesc{
 		Opt:   NewNameServerOpt(),
 		Viper: nil,
+		UUID:  "",
 	}
 }
 
@@ -204,6 +206,7 @@ func (o *NameServerDesc) PostParse() {
 		}
 		log.SetLevel(lvl)
 	}
+	o.UUID = utils.MustGenerateUUID()
 }
 
 func (o *NameServerDesc) SaveConfig() error {

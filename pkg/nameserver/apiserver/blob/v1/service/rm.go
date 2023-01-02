@@ -9,7 +9,10 @@ import (
 	"sync"
 )
 
-func (b blobService) Rm(path string) error {
+func (b blobService) Rm(path string, recursive bool) error {
+	if recursive {
+		return b.Rmdir(path)
+	}
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
 		return err

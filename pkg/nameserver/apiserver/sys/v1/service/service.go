@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"go-dfs-server/pkg/config"
 	"go-dfs-server/pkg/nameserver/apiserver/sys/v1/repo"
 	"go-dfs-server/pkg/nameserver/server"
 )
@@ -9,12 +10,17 @@ type SysService interface {
 	Info() (string, error)
 	GetSession(id string) (server.Session, error)
 	GetSessions() ([]string, error)
+	GetServers() ([]config.RegisteredDataServer, error)
 }
 
 var _ SysService = (*sysService)(nil)
 
 type sysService struct {
 	repo repo.Repo
+}
+
+func (o *sysService) GetServers() ([]config.RegisteredDataServer, error) {
+	return server.GlobalServerDesc.Opt.DataServers, nil
 }
 
 func (o *sysService) GetSessions() ([]string, error) {

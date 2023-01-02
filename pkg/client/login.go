@@ -3,8 +3,8 @@ package client
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go-dfs-server/pkg/client/api/auth"
 	"go-dfs-server/pkg/config"
+	v1 "go-dfs-server/pkg/nameserver/client/v1"
 	"go-dfs-server/pkg/utils"
 	"os"
 )
@@ -22,8 +22,8 @@ func Login(cmd *cobra.Command, args []string) {
 		}
 		opt.MustBindURL(args[0])
 		authOpt.MustBindAuthentication(cmd)
-		dfsClient := auth.Client{ClientOpt: &opt}
-		dfsClient.MustAuthLogin(&authOpt)
+		dfsClient := v1.NewNameServerClientFromOpt(opt)
+		dfsClient.MustAuthLogin(authOpt.AccessKey, authOpt.SecretKey)
 		log.Println("login success")
 	} else {
 		log.Debugln("%s", opt)
@@ -31,13 +31,13 @@ func Login(cmd *cobra.Command, args []string) {
 			opt.MustBindURL(args[0])
 			authOpt.MustBindAuthentication(cmd)
 		}
-		dfsClient := auth.Client{ClientOpt: &opt}
-		err = dfsClient.AuthRefresh()
+		dfsClient := v1.NewNameServerClientFromOpt(opt)
+		_, err := dfsClient.AuthRefresh()
 		if err != nil {
-			err = dfsClient.AuthLogin(&authOpt)
+			_, err = dfsClient.AuthLogin(authOpt.AccessKey, authOpt.SecretKey)
 			if err != nil {
 				authOpt.MustBindAuthentication(nil)
-				dfsClient.MustAuthLogin(&authOpt)
+				dfsClient.MustAuthLogin(authOpt.AccessKey, authOpt.SecretKey)
 				log.Println("login success")
 			}
 		}

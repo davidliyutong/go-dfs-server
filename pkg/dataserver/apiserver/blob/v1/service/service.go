@@ -133,19 +133,33 @@ func (b *blobService) DeleteChunk(path string, id int64) error {
 }
 
 func (b *blobService) DeleteDirectory(path string) error {
-	directoryPath := filepath.Join(server.GlobalServerDesc.Opt.Volume, path)
-	_, err := os.Stat(directoryPath)
+	directoryPath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(directoryPath)
 	if err == nil {
-		err = os.RemoveAll(directoryPath)
-		if err != nil {
-			return errors.New("failed to remove directory")
+		if utils.IsSameDirectory(server.GlobalServerDesc.Opt.Volume, directoryPath) {
+			dir, err := os.ReadDir(directoryPath)
+			if err != nil {
+				return err
+			}
+			for _, d := range dir {
+				err = os.RemoveAll(filepath.Join(directoryPath, d.Name()))
+				if err != nil {
+					return err
+				}
+			}
 		} else {
-			return nil
+			err = os.RemoveAll(directoryPath)
+			return err
 		}
 	} else if os.IsNotExist(err) {
 		return errors.New("file or directory does not exist")
 	}
 	return err
+
 }
 
 func (b *blobService) DeleteFile(path string) error {

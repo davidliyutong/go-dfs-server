@@ -6,13 +6,20 @@ import (
 	"go-dfs-server/pkg/nameserver/server"
 	"go-dfs-server/pkg/utils"
 	"os"
-	"path/filepath"
 	"sync"
 )
 
 func (b blobService) Rmdir(path string) error {
-	directoryPath := filepath.Join(server.GlobalServerDesc.Opt.Volume, path)
-	_, err := os.Stat(directoryPath)
+	directoryPath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
+	if err != nil {
+		return err
+	}
+
+	if utils.IsSameDirectory(server.GlobalServerDesc.Opt.Volume, directoryPath) {
+		return errors.New("cannot delete this directory")
+	}
+
+	_, err = os.Stat(directoryPath)
 	if err == nil {
 		err = os.RemoveAll(directoryPath)
 		if err != nil {

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -15,22 +16,50 @@ type ChunkBuffer struct {
 	version int64
 	pushed  bool
 	buffer  *ByteBuffer
+	rwmutex *sync.RWMutex
+	trmutex *sync.RWMutex
 }
 
 func (mf *ChunkBuffer) IsPushed() bool {
+	mf.trmutex.RLock()
+	defer mf.trmutex.RUnlock()
 	return mf.pushed
 }
 
+func (mf *ChunkBuffer) SetPushed(flag bool) {
+	mf.trmutex.Lock()
+	defer mf.trmutex.Unlock()
+	mf.pushed = flag
+}
+
 func (mf *ChunkBuffer) Version() int64 {
+	mf.rwmutex.RLock()
+	defer mf.rwmutex.RUnlock()
 	return mf.version
 }
 
+func (mf *ChunkBuffer) SetVersion(version int64) {
+	mf.rwmutex.Lock()
+	defer mf.rwmutex.Unlock()
+	mf.version = version
+}
+
 func (mf *ChunkBuffer) Bytes() []byte {
+	mf.rwmutex.RLock()
+	defer mf.rwmutex.RUnlock()
 	return mf.buffer.buffer
 }
 
 func NewChunkBuffer(path string, chunkID int64, version int64, buffer []byte) *ChunkBuffer {
-	return &ChunkBuffer{path: path, chunkID: chunkID, version: version, pushed: true, buffer: MakeByteBuffer(buffer)}
+	return &ChunkBuffer{
+		path:    path,
+		chunkID: chunkID,
+		version: version,
+		pushed:  false,
+		buffer:  MakeByteBuffer(buffer),
+		rwmutex: new(sync.RWMutex),
+		trmutex: new(sync.RWMutex),
+	}
 }
 
 func (mf *ChunkBuffer) Stat() (fs.FileInfo, error) {
@@ -38,6 +67,8 @@ func (mf *ChunkBuffer) Stat() (fs.FileInfo, error) {
 }
 
 func (mf *ChunkBuffer) Read(buffer []byte) (int, error) {
+	mf.rwmutex.RLock()
+	defer mf.rwmutex.RUnlock()
 	return mf.buffer.Read(buffer)
 }
 
@@ -46,12 +77,20 @@ func (mf *ChunkBuffer) Close() error {
 }
 
 func (mf *ChunkBuffer) Write(buffer []byte) (n int, err error) {
+	mf.rwmutex.Lock()
+	mf.trmutex.Lock()
+	defer mf.rwmutex.Unlock()
+	defer mf.trmutex.Unlock()
 	mf.pushed = false
 	mf.version += 1
 	return mf.buffer.Write(buffer)
 }
 
 func (mf *ChunkBuffer) WriteInPlace(buffer []byte) (n int, err error) {
+	mf.rwmutex.Lock()
+	mf.trmutex.Lock()
+	defer mf.rwmutex.Unlock()
+	defer mf.trmutex.Unlock()
 	mf.pushed = false
 	mf.version += 1
 	if mf.buffer.index+len(buffer) <= len(mf.buffer.buffer) {
@@ -64,12 +103,21 @@ func (mf *ChunkBuffer) WriteInPlace(buffer []byte) (n int, err error) {
 
 		}
 	} else {
-		return mf.buffer.Write(buffer)
+		mf.buffer.index, err = mf.buffer.Write(buffer)
+		return mf.buffer.index, err
 	}
 }
 
 func (mf *ChunkBuffer) Seek(offset int64, whence int) (int64, error) {
+	mf.rwmutex.Lock()
+	defer mf.rwmutex.Unlock()
 	return mf.buffer.Seek(offset, whence)
+}
+
+func (mf *ChunkBuffer) Position() int {
+	mf.rwmutex.Lock()
+	defer mf.rwmutex.Unlock()
+	return mf.buffer.Position()
 }
 
 func (mf *ChunkBuffer) Path() string       { return mf.path }

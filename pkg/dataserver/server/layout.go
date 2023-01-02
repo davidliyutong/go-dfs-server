@@ -38,10 +38,11 @@ type DataServerLayoutBlob struct {
 }
 
 type DataServerLayoutSys struct {
-	Self   string
-	Info   string
-	UUID   string
-	Config string
+	Self     string
+	Info     string
+	UUID     string
+	Config   string
+	Register string
 }
 
 var (
@@ -67,10 +68,11 @@ var (
 				WriteChunk:      "writeChunk",
 			},
 			Sys: DataServerLayoutSys{
-				Self:   "/v1/sys",
-				Info:   "info",
-				UUID:   "uuid",
-				Config: "config",
+				Self:     "/v1/sys",
+				Info:     "info",
+				UUID:     "uuid",
+				Config:   "config",
+				Register: "register",
 			},
 		},
 	}

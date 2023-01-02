@@ -10,14 +10,14 @@ type LsRequest struct {
 	Path string `form:"path" json:"path"`
 }
 
-type lsFileInfo struct {
+type LsFileInfo struct {
 	BaseName string `form:"basename" json:"basename"`
 	Type     string `form:"type" json:"type"`
 }
 type LsResponse struct {
 	Code int64        `form:"code" json:"code"`
 	Msg  string       `form:"msg" json:"msg"`
-	List []lsFileInfo `form:"list" json:"list"`
+	List []LsFileInfo `form:"list" json:"list"`
 }
 
 func (c2 controller) Ls(c *gin.Context) {
@@ -38,7 +38,7 @@ func (c2 controller) Ls(c *gin.Context) {
 				resp := LsResponse{Code: http.StatusOK, Msg: ""}
 				for _, v := range info {
 					log.Debug(v)
-					resp.List = append(resp.List, lsFileInfo{BaseName: v.BaseName, Type: v.Type})
+					resp.List = append(resp.List, LsFileInfo{BaseName: v.BaseName, Type: v.Type})
 				}
 				c.IndentedJSON(http.StatusOK, resp)
 			}

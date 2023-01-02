@@ -1,7 +1,10 @@
 package v1
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
+	"os"
 )
 
 const DefaultBlobChunkSize = 2 * 1024 * 1024 // 2MB
@@ -49,6 +52,38 @@ func (o *BlobMetaData) TruncateTo(chunkID int64) {
 	o.ChunkDistribution = o.ChunkDistribution[:chunkID]
 	o.ChunkChecksums = o.ChunkChecksums[:chunkID]
 	o.Versions = o.Versions[:chunkID]
+}
+
+func (o *BlobMetaData) Dump(path string) error {
+	filePtr, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func(filePtr *os.File) {
+		err := filePtr.Close()
+		if err != nil {
+
+		}
+	}(filePtr)
+	encoder := json.NewEncoder(filePtr)
+	err = encoder.Encode(o)
+	return err
+}
+
+func (o *BlobMetaData) Load(path string) error {
+	jsonFile, err := os.Open(path)
+	if err != nil {
+		return errors.New("cannot open metadata")
+	}
+	defer func(jsonFile *os.File) {
+		err := jsonFile.Close()
+		if err != nil {
+
+		}
+	}(jsonFile)
+	buffer, _ := io.ReadAll(jsonFile)
+	err = json.Unmarshal(buffer, o)
+	return err
 }
 
 func NewBlobMetaData(blobType string, baseName string) BlobMetaData {

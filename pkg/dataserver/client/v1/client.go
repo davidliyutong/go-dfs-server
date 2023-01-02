@@ -22,6 +22,7 @@ type DataServerClient interface {
 	GetBaseUrl() (string, error)
 	GetAPIUrl(keys ...string) (string, error)
 	GetUUID() string
+	SetUUID(string)
 	Ping() error
 	BlobCreateChunk(path string, id int64) error
 	BlobCreateFile(path string) error
@@ -36,10 +37,10 @@ type DataServerClient interface {
 	BlobReadChunkMeta(path string, id int64) (int64, string, error)
 	BlobUnlockFile(path string) error
 	BlobWriteChunk(path string, id int64, version int64, data io.Reader) (string, error)
-	SetUUID(string)
 	SysRole() (string, error)
 	SysVolume() (string, error)
 	SysUUID() (string, error)
+	SysRegister(uuid string) (string, error)
 }
 
 var _ DataServerClient = &dataServerClient{}

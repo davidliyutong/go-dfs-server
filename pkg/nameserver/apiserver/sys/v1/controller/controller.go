@@ -10,6 +10,7 @@ type Controller interface {
 	Info(c *gin.Context)
 	GetSession(c *gin.Context)
 	GetSessions(c *gin.Context)
+	GetServers(c *gin.Context)
 }
 
 type controller struct {

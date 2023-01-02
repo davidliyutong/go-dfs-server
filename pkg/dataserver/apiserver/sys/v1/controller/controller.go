@@ -10,8 +10,7 @@ type Controller interface {
 	Info(c *gin.Context)
 	Config(c *gin.Context)
 	UUID(c *gin.Context)
-	//UsedSpace(c *gin.Context)
-	//FreeSpace(c *gin.Context)
+	Register(c *gin.Context)
 }
 
 type controller struct {

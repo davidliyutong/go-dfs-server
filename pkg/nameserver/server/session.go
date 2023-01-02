@@ -2,14 +2,15 @@ package server
 
 import (
 	"bytes"
-	json "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	v12 "go-dfs-server/pkg/dataserver/client/v1"
 	"go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
 	"go-dfs-server/pkg/utils"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -23,10 +24,12 @@ type Session interface {
 	Close() error
 	Flush() error
 	Read(buffer []byte, size int64) (int64, error)
-	Write(data []byte, n int64) error
+	Write(data []byte, n int64, wg *sync.WaitGroup, errChan chan error) error
 	Truncate(size int64) error
+	setErrorClose(err error) error
 	GetTime() time.Time
 	GetID() *string
+	GetErrors() *[]error
 	GetChunkID() int64
 	GetMode() *int
 	GetPath() *string
@@ -40,20 +43,19 @@ type Session interface {
 }
 
 type session struct {
-	Path             string
-	FilePath         string
-	ID               string
-	Mode             int
-	Version          int64
-	Time             time.Time
-	Offset           int64
-	Opened           bool
-	Blob             v1.BlobMetaData
-	SessionMutex     *sync.RWMutex           // Controls access to the session
-	ChunkMutex       *sync.RWMutex           // Controls access to the chunk
-	ChunkBufferMutex map[int64]*sync.RWMutex // Controls access to the chunk buffer
-	ChunkBuffer      map[int64]*ChunkBuffer
-	TransferMutex    *sync.RWMutex // Controls access to the chunk transfer
+	Path         string
+	FilePath     string
+	ID           string
+	Mode         int
+	Time         time.Time
+	Offset       int64
+	Opened       bool
+	Error        []error
+	Blob         v1.BlobMetaData
+	SessionMutex *sync.RWMutex // Controls access to the session
+	ChunkMutex   *sync.RWMutex // Controls access to the Buffer
+	Chunks       map[int64]*ChunkBuffer
+	ChunkLRU     *lru.ARCCache[int64, int64]
 }
 
 func (s *session) Truncate(size int64) error {
@@ -61,29 +63,15 @@ func (s *session) Truncate(size int64) error {
 	panic("implement me")
 }
 
-func (s *session) pushChunk(chunkID int64) (*sync.WaitGroup, chan error, error) {
+func (s *session) pushChunk(chunkID int64) error {
+	// no lock
 	if !s.IsOpened() {
-		return nil, nil, errors.New("session closed")
+		return errors.New("session closed")
 	}
 
-	s.ChunkMutex.RLock()
-	defer s.ChunkMutex.RUnlock()
-
-	wg := new(sync.WaitGroup)
-
-	if _, ok := s.ChunkBufferMutex[chunkID]; !ok {
-		//s.Opened = false
-		return nil, nil, errors.New("chunk not found")
+	if _, ok := s.Chunks[chunkID]; !ok {
+		return s.setErrorClose(errors.New("chunk not found"))
 	}
-
-	s.ChunkBufferMutex[chunkID].RLock()
-	defer s.ChunkBufferMutex[chunkID].RUnlock()
-
-	if s.ChunkBuffer[chunkID].pushed {
-		//s.Opened = false
-		return wg, nil, errors.New("chunk already pushed")
-	}
-	localMD5, _ := utils.GetBufferMD5(s.ChunkBuffer[chunkID].buffer.Bytes())
 
 	var clients []interface{}
 	var needCreateChunk = false
@@ -95,148 +83,133 @@ func (s *session) pushChunk(chunkID int64) (*sync.WaitGroup, chan error, error) 
 		clients, err = BlobDataServerManger.GetClients(oldClientUUIDs)
 		if err != nil {
 			log.Warningln(err.Error())
+			return err
 		}
 	}
 
-	errChan := make(chan error, len(clients)*2)
+	if s.Chunks[chunkID].IsPushed() {
+		return nil
+	}
+
+	localMD5, _ := utils.GetBufferMD5(s.Chunks[chunkID].Bytes())
+
+	wg := new(sync.WaitGroup)
 	wg.Add(len(clients) + 1)
 	go func() {
 		clientErrors := make([]error, 0)
+
 		for _, client := range clients {
 			if needCreateChunk {
-				_ = client.(v12.DataServerClient).BlobCreateChunk(s.ChunkBuffer[chunkID].path, chunkID)
+				_ = client.(v12.DataServerClient).BlobCreateChunk(s.Chunks[chunkID].path, chunkID)
 			}
+			remoteMD5, err := client.(v12.DataServerClient).BlobWriteChunk(s.Chunks[chunkID].path, chunkID, s.Chunks[chunkID].version, bytes.NewBuffer(s.Chunks[chunkID].Bytes()))
 
-			remoteMD5, err := client.(v12.DataServerClient).BlobWriteChunk(s.ChunkBuffer[chunkID].path, chunkID, s.ChunkBuffer[chunkID].version, bytes.NewBuffer(s.ChunkBuffer[chunkID].buffer.Bytes()))
-			if err != nil {
-				s.Opened = false
-				errChan <- err
-				clientErrors = append(clientErrors, err)
-				wg.Done()
-				continue
-			}
-
-			if localMD5 != remoteMD5 {
-				s.Opened = false
+			if localMD5 != remoteMD5 && remoteMD5 != "" {
 				err = errors.New(fmt.Sprintf("checksum %s mismatch %s", localMD5, remoteMD5))
-			} else {
-				err = nil
 			}
-			errChan <- err
 			clientErrors = append(clientErrors, err)
 			wg.Done()
 			continue
 		}
 
 		if utils.HasError(clientErrors) {
-			log.Warningln("push: ", chunkID, ";", "errors: ", clientErrors)
-		}
-
-		s.Blob.ExtendTo(chunkID)
-		s.Blob.ChunkChecksums[chunkID] = localMD5
-		s.Blob.Versions[chunkID] = s.ChunkBuffer[chunkID].version
-		s.ChunkBuffer[chunkID].pushed = true
-		if needCreateChunk {
-			newClientUUIDs := make([]string, len(clients))
-			for idx, client := range clients {
-				newClientUUIDs[idx] = client.(v12.DataServerClient).GetUUID()
+			_ = s.setErrorClose(errors.New(fmt.Sprint("push: ", chunkID, ";", "errors: ", clientErrors)))
+			wg.Done()
+			return
+		} else {
+			s.Blob.ExtendTo(chunkID)
+			s.Blob.ChunkChecksums[chunkID] = localMD5
+			s.Blob.Versions[chunkID] = s.Chunks[chunkID].Version()
+			if needCreateChunk {
+				newClientUUIDs := make([]string, len(clients))
+				for idx, client := range clients {
+					newClientUUIDs[idx] = client.(v12.DataServerClient).GetUUID()
+				}
+				s.Blob.ChunkDistribution[chunkID] = newClientUUIDs
 			}
-			s.Blob.ChunkDistribution[chunkID] = newClientUUIDs
+			s.Blob.Size = utils.MaxInt64(s.Blob.Size, chunkID*v1.DefaultBlobChunkSize+int64(s.Chunks[chunkID].Position()))
+			s.Chunks[chunkID].SetPushed(true)
+
+			log.Debugln("sync: ", chunkID, ";", "errors: ", clientErrors)
+			wg.Done()
 		}
-		s.Blob.Size = utils.MaxInt64(s.Blob.Size, chunkID*v1.DefaultBlobChunkSize+int64(s.ChunkBuffer[chunkID].buffer.Position()))
 
-		log.Debugln("sync: ", chunkID, ";", "errors: ", clientErrors)
-		errChan <- s.DumpBlobMetaData()
-		wg.Done()
-		close(errChan)
 	}()
+	wg.Wait()
 
-	return wg, errChan, nil
+	return nil
 
 }
 
-func (s *session) pullChunk(chunkID int64) (*sync.WaitGroup, chan error, error) {
+func (s *session) pullChunk(chunkID int64) error {
+	// no Lock
 	if !s.IsOpened() {
-		return nil, nil, errors.New("session closed")
+		return errors.New("session closed")
 	}
 
 	chunkOffset := s.GetChunkOffset()
 	_ = s.keepBuffer(chunkID)
 
-	errChan := make(chan error, 10)
-	wg := new(sync.WaitGroup)
 	if chunkID >= int64(len(s.Blob.ChunkChecksums)) {
-		close(errChan)
-		return wg, errChan, nil
+		return nil
 	}
 	clientUUIDs, err := s.Blob.GetChunkDistribution(chunkID)
 	if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-		close(errChan)
-		return nil, nil, errors.New("current chunk is not present")
+		return errors.New("current chunk is not present")
 	} else {
 		clients, err := BlobDataServerManger.GetClients(clientUUIDs)
 		if err != nil {
-			close(errChan)
-			return nil, nil, errors.New("cannot get related data server")
+			return errors.New("cannot get related data server")
 		}
 		for _, client := range clients {
 			version, _, err := client.(v12.DataServerClient).BlobReadChunkMeta(s.Path, chunkID)
 			if err != nil {
+				// TODO: handle error
 				continue
 			}
 			reader, err := client.(v12.DataServerClient).BlobReadChunk(s.Path, chunkID)
 			if err != nil {
+				// TODO: handle error
 				continue
 			} else {
-				wg.Add(1)
-				go func() {
-					s.ChunkBufferMutex[chunkID].Lock()
-					s.ChunkBuffer[chunkID].version = version
-					s.Blob.Versions[chunkID] = version
-					defer wg.Done()
-					defer s.ChunkBufferMutex[chunkID].Unlock()
-					defer close(errChan)
 
-					buf, _ := io.ReadAll(reader)
-					_, err := s.ChunkBuffer[chunkID].WriteInPlace(buf)
-					if err != nil {
-						s.Opened = false
-						errChan <- err
-						return
-					}
-					_, err = s.ChunkBuffer[chunkID].buffer.Seek(chunkOffset, io.SeekStart)
-					if err != nil {
-						s.Opened = false
-						errChan <- err
-						return
-					}
-				}()
-				return wg, errChan, nil
+				s.Chunks[chunkID].SetVersion(version)
+				s.Chunks[chunkID].SetPushed(false)
+				s.Blob.Versions[chunkID] = version
+
+				buf, _ := io.ReadAll(reader)
+				_, err := s.Chunks[chunkID].WriteInPlace(buf)
+				if err != nil {
+					return err
+				}
+				_, err = s.Chunks[chunkID].Seek(chunkOffset, io.SeekStart)
+				return err
 			}
 		}
-		close(errChan)
-		return nil, nil, errors.New("cannot read chunk")
+
+		return errors.New("cannot read chunk from any data servers")
 	}
 }
 
-func (s *session) deleteChunk(chunkID int64) (*sync.WaitGroup, chan error, error) {
+func (s *session) deleteChunk(chunkID int64) error {
+	// no lock
 	if !s.IsOpened() {
-		return nil, nil, errors.New("session closed")
+		return errors.New("session closed")
 	}
 
 	if chunkID >= int64(len(s.Blob.ChunkChecksums)) {
-		return nil, nil, errors.New("invalid chunkID")
+		return errors.New("invalid chunkID")
 	}
-	errChan := make(chan error, 1)
+	errChan := make(chan error, 3)
 	wg := new(sync.WaitGroup)
 
 	clientUUIDs, err := s.Blob.GetChunkDistribution(chunkID)
 	if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-		return nil, nil, errors.New("current chunk is not present")
+		return errors.New("current chunk is not present")
 	} else {
 		clients, err := BlobDataServerManger.GetClients(clientUUIDs)
 		if err != nil {
-			return nil, nil, errors.New("cannot get related data server")
+			return errors.New("cannot get related data server")
 		}
 		wg.Add(len(clients))
 		go func() {
@@ -247,54 +220,55 @@ func (s *session) deleteChunk(chunkID int64) (*sync.WaitGroup, chan error, error
 				wg.Done()
 			}
 		}()
-
-		return wg, errChan, nil
-	}
-}
-
-func (s *session) freeBuffer() {
-	currChunkID := s.GetChunkID()
-	for k, v := range s.ChunkBuffer {
-		if k != currChunkID && v.IsPushed() {
-			s.dropBuffer(k)
+		wg.Wait()
+		errs := utils.ReceiveErrors(errChan)
+		if utils.HasError(errs) {
+			return utils.GetFirstError(errs)
+		} else {
+			return nil
 		}
 	}
 }
 
-func (s *session) updateWriteBuffer(chunkID int64, chunkOffset int64, data []byte) error {
-	if _, ok := s.ChunkBuffer[chunkID]; !ok {
-		wg, _, err := s.pullChunk(chunkID)
+func (s *session) updateChunk(chunkID int64, chunkOffset int64, data []byte) error {
+	// Chunk RLock
+	if _, ok := s.Chunks[chunkID]; !ok {
+		err := s.pullChunk(chunkID)
 		if err != nil {
 			return err
 		}
-		wg.Wait()
 	}
 
-	s.ChunkBufferMutex[chunkID].Lock()
-	defer s.ChunkBufferMutex[chunkID].Unlock()
+	s.ChunkMutex.Lock()
+	defer s.ChunkMutex.Unlock()
 
-	_, err := s.ChunkBuffer[chunkID].buffer.Seek(chunkOffset, io.SeekStart)
+	_, err := s.Chunks[chunkID].Seek(chunkOffset, io.SeekStart)
 	if err != nil {
 		return err
 	}
 
-	if s.ChunkBuffer[chunkID].buffer.Position()+len(data) > v1.DefaultBlobChunkSize {
+	if s.Chunks[chunkID].Position()+len(data) > v1.DefaultBlobChunkSize {
 		return errors.New("buffer overflow")
 	} else {
-		_, err := s.ChunkBuffer[chunkID].WriteInPlace(data)
+		_, err := s.Chunks[chunkID].WriteInPlace(data)
 		return err
 	}
 }
 
-func (s *session) Write(data []byte, n int64) error {
+func (s *session) Write(data []byte, n int64, wg *sync.WaitGroup, errChan chan error) error {
+	// Session-Level Lock
 	if !s.IsOpened() {
 		return errors.New("session closed")
 	}
 
-	s.SessionMutex.Lock()
-	defer s.SessionMutex.Unlock()
 	var numBytesWritten int64 = 0
 	numBytesLeft := n
+
+	s.SessionMutex.Lock()
+
+	defer s.SessionMutex.Unlock()
+	defer wg.Done()
+
 	for numBytesLeft > 0 {
 		currChunkID := s.GetChunkID()
 		currChunkOffset := s.GetChunkOffset()
@@ -306,66 +280,70 @@ func (s *session) Write(data []byte, n int64) error {
 			numBytesToWrite = numBytesLeft
 		}
 
-		err := s.updateWriteBuffer(currChunkID, currChunkOffset, data[numBytesWritten:numBytesWritten+numBytesToWrite])
+		err := s.updateChunk(currChunkID, currChunkOffset, data[numBytesWritten:numBytesWritten+numBytesToWrite])
 		if err != nil {
+			errChan <- s.setErrorClose(err)
 			return err
 		}
-		wg, _, err := s.pushChunk(currChunkID)
+		s.ChunkMutex.RLock()
+		err = s.pushChunk(currChunkID)
+		s.ChunkMutex.RUnlock()
 		if err != nil {
+			errChan <- s.setErrorClose(err)
 			return err
+		} else {
+			numBytesLeft -= numBytesToWrite
+			numBytesWritten += numBytesToWrite
+			s.Offset += numBytesToWrite
+			errChan <- nil
+			s.freeBuffer()
 		}
-		wg.Wait()
-		//s.freeBuffer()
-		numBytesLeft -= numBytesToWrite
-		numBytesWritten += numBytesToWrite
-
-		s.Offset += numBytesToWrite
 	}
+
+	err := s.DumpBlobMetaData()
+	if err != nil {
+		errChan <- err
+	}
+
 	return nil
 }
 
-func (s *session) initBuffer() {
-	if s.ChunkBuffer == nil {
-		s.ChunkBuffer = make(map[int64]*ChunkBuffer)
-	}
-	if s.ChunkBufferMutex == nil {
-		s.ChunkBufferMutex = make(map[int64]*sync.RWMutex)
-	}
-	if s.ChunkMutex == nil {
-		s.ChunkMutex = new(sync.RWMutex)
-	}
-}
-
 func (s *session) keepBuffer(chunkID int64) error {
-	if _, ok := s.ChunkBuffer[chunkID]; ok {
+	// no lock
+	if _, ok := s.Chunks[chunkID]; ok {
 		return nil
 	} else {
-		s.ChunkMutex.Lock()
-		s.ChunkBuffer[chunkID] = NewChunkBuffer(s.Path, s.GetChunkID(), 0, make([]byte, 0))
-		s.ChunkBufferMutex[chunkID] = new(sync.RWMutex)
-		s.ChunkMutex.Unlock()
+		s.Chunks[chunkID] = NewChunkBuffer(s.Path, s.GetChunkID(), 0, make([]byte, 0))
 		return nil
 	}
 }
 
-func (s *session) dropBuffer(chunkID int64) {
-	if _, ok := s.ChunkBufferMutex[chunkID]; ok {
-		s.ChunkMutex.Lock()
-
-		s.ChunkBufferMutex[chunkID].Lock()
-		delete(s.ChunkBuffer, chunkID)
-		s.ChunkBufferMutex[chunkID].Unlock()
-		delete(s.ChunkBufferMutex, chunkID)
-
-		s.ChunkMutex.Unlock()
-	}
+func (s *session) freeBuffer() {
+	// Chunk Lock
+	s.ChunkMutex.Lock()
+	go func() {
+		defer s.ChunkMutex.Unlock()
+		currChunkID := s.GetChunkID()
+		for k, v := range s.Chunks {
+			if math.Abs(float64(k)-float64(currChunkID)) > 1 && v.IsPushed() {
+				delete(s.Chunks, k)
+			}
+		}
+	}()
 }
 
 func (s *session) Open() error {
 	// check path
+	if s.Opened {
+		return errors.New("session already opened")
+	}
+
+	s.SessionMutex.Lock()
+	defer s.SessionMutex.Unlock()
+
 	filePath, err := utils.JoinSubPathSafe(GlobalServerDesc.Opt.Volume, s.Path)
 	if err != nil {
-		return err
+		return s.setErrorClose(err)
 	} else {
 		s.FilePath = filePath
 	}
@@ -374,72 +352,76 @@ func (s *session) Open() error {
 	var isValidFile = utils.GetFileState(s.FilePath)
 
 	if pathExists && !isValidFile {
-		return errors.New("path is not a file")
+		return s.setErrorClose(errors.New("path is not a file"))
 	}
 
 	if isValidFile {
 		err := s.LoadBlobMetaData()
 		if err != nil {
-			return err
+			return s.setErrorClose(err)
 		}
 	}
 
 	switch s.Mode {
 	case os.O_RDONLY:
 		if !isValidFile {
-			return errors.New("file does not exist or invalid")
+			return s.setErrorClose(errors.New("file does not exist or invalid"))
 		}
 
 	case os.O_RDWR:
 		if !isValidFile {
 			clients := BlobDataServerManger.GetAllClients()
 			if len(clients) < 3 {
-				return errors.New("no enough data server available")
+				return s.setErrorClose(errors.New("no enough data server available"))
 			}
 			clientErrors := make([]error, len(clients))
 			wg := sync.WaitGroup{}
-			wg.Add(len(clients))
+			wg.Add(len(clients) + 1)
 			for idx, client := range clients {
 				idx := idx
 				client := client
 				go func() {
+					defer wg.Done()
 					err := client.(v12.DataServerClient).BlobCreateFile(s.Path)
-					if err != nil && err.Error() != "file or directory exists" {
+					if err != nil {
 						clientErrors[idx] = err
 					} else {
 						clientErrors[idx] = nil
 					}
-					wg.Done()
 				}()
 			}
-			wg.Wait()
-			err1 := os.Mkdir(filePath, 0775)
-			s.SetBlobMetaData(v1.NewBlobMetaData(v1.BlobFileTypeName, filepath.Base(s.Path)))
-			err2 := s.DumpBlobMetaData()
+			var err1, err2 error
+			go func() {
+				defer wg.Done()
+				err1 = os.Mkdir(filePath, 0775)
+				s.SetBlobMetaData(v1.NewBlobMetaData(v1.BlobFileTypeName, filepath.Base(s.Path)))
+				err2 = s.DumpBlobMetaData()
+			}()
 
-			if utils.HasError(clientErrors) || err1 != nil || err2 != nil {
-				wg.Add(len(clients))
-				for _, client := range clients {
-					client := client
-					go func() { _ = client.(v12.DataServerClient).BlobDeleteFile(s.Path); wg.Done() }()
+			wg.Wait()
+
+			if utils.HasError(clientErrors) {
+				for _, err := range clientErrors {
+					_ = s.setErrorClose(err)
 				}
-				wg.Wait()
-				return errors.New("create file failed")
-			} else {
-				return nil
+				return s.setErrorClose(errors.New("create file failed, dataserver error"))
+			} else if err1 != nil || err2 != nil {
+				_ = s.setErrorClose(err1)
+				_ = s.setErrorClose(err2)
+				return s.setErrorClose(errors.New("create file failed, local error"))
 			}
 		}
 
 	default:
-		return errors.New("invalid mode")
+		return s.setErrorClose(errors.New("invalid mode"))
 
 	}
 	s.Opened = true
 	if isValidFile {
-		_, _, err = s.pullChunk(0)
+		err := s.pullChunk(0)
 		if err != nil {
 			s.Opened = false
-			return errors.New("failed to pull read buffer")
+			return s.setErrorClose(errors.New("failed to pull read buffer"))
 		}
 	}
 
@@ -451,110 +433,129 @@ func (s *session) IsOpened() bool {
 }
 
 func (s *session) Seek(offset int64, whence int) (int64, error) {
+	// Session-level lock
+	// Chunk-level lock
 	if !s.IsOpened() {
 		return -1, errors.New("session closed")
 	}
-	err := s.Flush()
-	if err != nil {
-		return -1, err
-	}
+
 	var newOffset int64
 	if whence == io.SeekStart {
 		newOffset = offset
 	} else if whence == io.SeekCurrent {
 		newOffset += offset
 	} else if whence == io.SeekEnd {
-		newOffset = s.Blob.Size + offset
+		newOffset = s.Blob.Size - 1 - offset
 	}
+
+	s.SessionMutex.Lock()
 	if newOffset < 0 || newOffset > s.Blob.Size {
+		s.SessionMutex.Unlock()
 		return 0, errors.New("invalid offset")
 	} else {
+
 		s.Offset = newOffset
-		currChunkID := s.GetChunkID()
-		_, _, err := s.pullChunk(currChunkID)
-		if err != nil {
-			return -1, err
-		}
+
+		s.ChunkMutex.Lock()
+		go func() {
+			defer s.SessionMutex.Unlock()
+			defer s.ChunkMutex.Unlock()
+			currChunkID := s.GetChunkID()
+			err := s.pullChunk(currChunkID)
+			if err != nil {
+				_ = s.setErrorClose(err)
+				return
+			}
+		}()
+
 		return s.Offset, nil
+
 	}
 }
 
 func (s *session) Close() error {
+	// Session-level lock
 	if !s.IsOpened() {
 		return errors.New("session closed")
 	}
 	err := s.Flush()
-	if err != nil {
-		return err
-	}
-
 	s.SessionMutex.Lock()
-	s.Opened = false
-	s.SessionMutex.Unlock()
+	defer s.SessionMutex.Unlock()
+	if err != nil {
+		_ = s.setErrorClose(err)
+		return err
+	} else {
+		_ = s.setErrorClose(nil)
 
-	s.SessionMutex = nil
-	s.ChunkMutex = nil
-	s.ChunkBufferMutex = nil
-	s.ChunkBuffer = nil
-
-	return nil
+		s.ChunkMutex = nil
+		s.Chunks = nil
+		return nil
+	}
 }
 
 func (s *session) Flush() error {
+	// Session-level lock
+	// Chunk-level lock
+	s.SessionMutex.Lock()
+	defer s.SessionMutex.Unlock()
+
 	if !s.IsOpened() {
 		return errors.New("session closed")
 	}
-	s.SessionMutex.Lock()
-	defer s.SessionMutex.Unlock()
 
 	switch s.Mode {
 	case os.O_RDONLY:
 		return nil
 	case os.O_RDWR:
-		for chunkID := range s.ChunkBuffer {
-			wg, _, err := s.pushChunk(chunkID)
-			wg.Wait()
+		s.ChunkMutex.RLock()
+		for chunkID := range s.Chunks {
+			err := s.pushChunk(chunkID)
 			if err != nil && err.Error() != "chunk already pushed" {
-				return err
+				return s.setErrorClose(err)
 			}
 		}
+		s.ChunkMutex.RUnlock()
+
 		s.freeBuffer()
+
 		maxChunkID := utils.GetChunkID(s.Blob.Size)
 		for idx, _ := range s.Blob.ChunkChecksums {
 			if int64(idx) > maxChunkID {
-				wg, _, err := s.deleteChunk(int64(idx))
-				wg.Wait()
+				err := s.deleteChunk(int64(idx))
 				if err != nil {
-					continue
+					return s.setErrorClose(err)
 				}
 			}
 		}
-		s.Blob.TruncateTo(maxChunkID)
 
-		return s.DumpBlobMetaData()
+		s.Blob.TruncateTo(maxChunkID)
+		err := s.DumpBlobMetaData()
+		if err != nil {
+			return s.setErrorClose(err)
+		} else {
+			return nil
+		}
+
 	default:
-		return errors.New("invalid mode")
+		return s.setErrorClose(errors.New("invalid mode"))
 	}
 }
 
 func (s *session) fetchReadBuffer(chunkID int64, chunkOffset int64, buffer []byte) (int64, error) {
-	if _, ok := s.ChunkBuffer[chunkID]; !ok {
-		wg, _, err := s.pullChunk(chunkID)
+	// Chunk-level lock
+	if _, ok := s.Chunks[chunkID]; !ok {
+		err := s.pullChunk(chunkID)
 		if err != nil {
 			return 0, err
 		}
-		wg.Wait()
 	}
 
-	s.ChunkBufferMutex[chunkID].RLock()
-	defer s.ChunkBufferMutex[chunkID].RUnlock()
-
-	_, err := s.ChunkBuffer[chunkID].buffer.Seek(chunkOffset, io.SeekStart)
+	_, err := s.Chunks[chunkID].Seek(chunkOffset, io.SeekStart)
 	if err != nil {
 		return 0, err
 	}
 
-	n, err := s.ChunkBuffer[chunkID].Read(buffer)
+	n, err := s.Chunks[chunkID].Read(buffer)
 	if err != nil {
 		return 0, err
 	} else {
@@ -563,6 +564,7 @@ func (s *session) fetchReadBuffer(chunkID int64, chunkOffset int64, buffer []byt
 }
 
 func (s *session) Read(buffer []byte, size int64) (int64, error) {
+	// Session-Level lock
 	if !s.IsOpened() {
 		return 0, errors.New("session closed")
 	}
@@ -586,6 +588,17 @@ func (s *session) Read(buffer []byte, size int64) (int64, error) {
 	return numBytesRead, nil
 }
 
+func (s *session) setErrorClose(err error) error {
+	if err != nil {
+		log.Errorf("session %v closed due to error: %v", s.GetID(), err)
+	} else {
+		log.Errorf("session %v closed", s.GetID())
+	}
+	s.Error = append(s.Error, err)
+	s.Opened = false
+	return err
+}
+
 func (s *session) GetTime() time.Time {
 	return s.Time
 }
@@ -604,6 +617,10 @@ func (s *session) GetChunkOffset() int64 {
 
 func (s *session) GetMode() *int {
 	return &s.Mode
+}
+
+func (s *session) GetErrors() *[]error {
+	return &s.Error
 }
 
 func (s *session) GetPath() *string {
@@ -631,51 +648,28 @@ func (s *session) SetBlobMetaData(blob v1.BlobMetaData) {
 }
 
 func (s *session) DumpBlobMetaData() error {
-	filePtr, err := os.Create(s.GetMetaFilePath())
-	if err != nil {
-		return err
-	}
-	defer func(filePtr *os.File) {
-		err := filePtr.Close()
-		if err != nil {
-
-		}
-	}(filePtr)
-	encoder := json.NewEncoder(filePtr)
-	err = encoder.Encode(s.Blob)
-	return err
+	return s.Blob.Dump(s.GetMetaFilePath())
 }
 
 func (s *session) LoadBlobMetaData() error {
-	jsonFile, err := os.Open(s.GetMetaFilePath())
-	if err != nil {
-		return errors.New("cannot open metadata")
-	}
-	defer func(jsonFile *os.File) {
-		err := jsonFile.Close()
-		if err != nil {
-
-		}
-	}(jsonFile)
-	buffer, _ := io.ReadAll(jsonFile)
-	err = json.Unmarshal(buffer, &s.Blob)
-	return err
+	return s.Blob.Load(s.GetMetaFilePath())
 }
 
 func NewSession(path string, filePath string, id string, mode int) Session {
+	newCache, _ := lru.NewARC[int64, int64](32)
 	return &session{
-		Path:             path,
-		FilePath:         filePath,
-		ID:               id,
-		Mode:             mode,
-		Time:             time.Now(),
-		Offset:           0,
-		Opened:           true,
-		Blob:             v1.BlobMetaData{},
-		SessionMutex:     new(sync.RWMutex),
-		ChunkMutex:       new(sync.RWMutex),
-		ChunkBufferMutex: make(map[int64]*sync.RWMutex),
-		ChunkBuffer:      make(map[int64]*ChunkBuffer),
-		TransferMutex:    new(sync.RWMutex),
+		Path:         path,
+		FilePath:     filePath,
+		ID:           id,
+		Mode:         mode,
+		Time:         time.Now(),
+		Offset:       0,
+		Opened:       false,
+		Error:        make([]error, 0),
+		Blob:         v1.BlobMetaData{},
+		SessionMutex: new(sync.RWMutex),
+		ChunkMutex:   new(sync.RWMutex),
+		Chunks:       make(map[int64]*ChunkBuffer),
+		ChunkLRU:     newCache,
 	}
 }

@@ -27,7 +27,7 @@ func (c *dataServerClient) BlobCreateChunk(path string, id int64) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -67,7 +67,7 @@ func (c *dataServerClient) BlobCreateFile(path string) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -107,7 +107,7 @@ func (c *dataServerClient) BlobCreateDirectory(path string) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -148,7 +148,7 @@ func (c *dataServerClient) BlobDeleteChunk(path string, id int64) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -188,7 +188,7 @@ func (c *dataServerClient) BlobDeleteFile(path string) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -228,7 +228,7 @@ func (c *dataServerClient) BlobDeleteDirectory(path string) error {
 	if err != nil {
 		return err
 	}
-	req, _ := http.NewRequest("PUT", targetUrl, bytes.NewReader(payload))
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)

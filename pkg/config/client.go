@@ -21,11 +21,11 @@ const ClientDefaultConfigSearchPath0 = "/etc/go-dfs-server"
 const ClientDefaultConfigSearchPath1 = "./"
 
 type ClientOpt struct {
-	Token   string
-	Expire  time.Time
-	Address string
-	Port    int16
-	UseTLS  bool
+	Token    string
+	Expire   time.Time
+	Hostname string
+	Port     int64
+	UseTLS   bool
 }
 
 type ClientAuthOpt struct {
@@ -35,18 +35,12 @@ type ClientAuthOpt struct {
 	Expire    time.Time
 }
 
-func (o *ClientAuthOpt) AuthIsEnabled() bool {
+func (o *ClientOpt) AuthIsEnabled() bool {
 	return o.Token != ""
 }
 
-func (o *ClientOpt) GetHTTPUrl() string {
-	if o.UseTLS {
-		s := fmt.Sprintf("%s://%s:%d", "https", o.Address, o.Port)
-		return s
-	} else {
-		s := fmt.Sprintf("%s://%s:%d", "http", o.Address, o.Port)
-		return s
-	}
+func (o *ClientAuthOpt) AuthIsEnabled() bool {
+	return o.Token != ""
 }
 
 func NewClientOpt() ClientOpt {
@@ -139,8 +133,8 @@ func (o *ClientOpt) BindURL(url string) error {
 	}
 
 	log.Debugf("remote is %s, port is %d", ipString, portInt)
-	o.Address = ipString
-	o.Port = int16(portInt)
+	o.Hostname = ipString
+	o.Port = int64(portInt)
 	return nil
 }
 
@@ -163,14 +157,14 @@ func (o *ClientAuthOpt) BindAuthentication(cmd *cobra.Command) error {
 	}
 
 	if accessKey == "" {
-		fmt.Printf("Input accessKey:")
+		fmt.Printf("Input accessKey: ")
 		_, err := fmt.Scanf("%s", &accessKey)
 		if err != nil && err.Error() != "unexpected newline" {
 			return err
 		}
 	}
 	if secretKey == "" {
-		fmt.Printf("Input secretKey:")
+		fmt.Printf("Input secretKey: ")
 		_, err := fmt.Scanf("%s", &secretKey)
 		if err != nil && err.Error() != "unexpected newline" {
 			return err

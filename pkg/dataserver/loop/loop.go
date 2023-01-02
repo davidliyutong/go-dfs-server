@@ -21,12 +21,12 @@ func registerPingGroup(router *gin.Engine) {
 func registerBlobGroup(router *gin.Engine) {
 	grp := router.Group(server.APILayout.V1.Blob.Self)
 	blobController := blob.NewController(nil)
-	grp.PUT(server.APILayout.V1.Blob.CreateChunk, blobController.CreateChunk)
-	grp.PUT(server.APILayout.V1.Blob.CreateDirectory, blobController.CreateDirectory)
-	grp.PUT(server.APILayout.V1.Blob.CreateFile, blobController.CreateFile)
-	grp.PUT(server.APILayout.V1.Blob.DeleteChunk, blobController.DeleteChunk)
-	grp.PUT(server.APILayout.V1.Blob.DeleteDirectory, blobController.DeleteDirectory)
-	grp.PUT(server.APILayout.V1.Blob.DeleteFile, blobController.DeleteFile)
+	grp.POST(server.APILayout.V1.Blob.CreateChunk, blobController.CreateChunk)
+	grp.POST(server.APILayout.V1.Blob.CreateDirectory, blobController.CreateDirectory)
+	grp.POST(server.APILayout.V1.Blob.CreateFile, blobController.CreateFile)
+	grp.POST(server.APILayout.V1.Blob.DeleteChunk, blobController.DeleteChunk)
+	grp.POST(server.APILayout.V1.Blob.DeleteDirectory, blobController.DeleteDirectory)
+	grp.POST(server.APILayout.V1.Blob.DeleteFile, blobController.DeleteFile)
 	grp.POST(server.APILayout.V1.Blob.LockFile, blobController.LockFile)
 	grp.GET(server.APILayout.V1.Blob.ReadChunk, blobController.ReadChunk)
 	grp.GET(server.APILayout.V1.Blob.ReadChunkMeta, blobController.ReadChunkMeta)
@@ -42,6 +42,8 @@ func registerSysGroup(router *gin.Engine) {
 	grp.GET(server.APILayout.V1.Sys.Info, sysController.Info)
 	grp.GET(server.APILayout.V1.Sys.UUID, sysController.UUID)
 	grp.GET(server.APILayout.V1.Sys.Config, sysController.Config)
+	grp.POST(server.APILayout.V1.Sys.Register, sysController.Register)
+
 }
 
 func createServer() *gin.Engine {
@@ -65,10 +67,10 @@ func MainLoop(cmd *cobra.Command, args []string) {
 	}
 
 	/** End of server init */
-	log.Debugln("uuid:", desc.Opt.UUID)
-	log.Debugln("port:", desc.Opt.Network.Port)
-	log.Debugln("endpoint:", desc.Opt.Network.Endpoint)
-	log.Debugln("volume:", desc.Opt.Volume)
+	log.Infoln("uuid:", desc.Opt.UUID)
+	log.Infoln("port:", desc.Opt.Network.Port)
+	log.Infoln("endpoint:", desc.Opt.Network.Endpoint)
+	log.Infoln("volume:", desc.Opt.Volume)
 
 	ginEngine := createServer()
 

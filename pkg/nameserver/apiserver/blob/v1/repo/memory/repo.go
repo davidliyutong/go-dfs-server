@@ -48,25 +48,30 @@ func (r *blobRepo) Open(path string, mode int) (string, error) {
 	sessionID, _ := r.SessionManager().New(path, "", mode)
 	session, _ := r.SessionManager().Get(sessionID)
 
-	err := session.Open()
+	var err error
+	switch mode {
+	case os.O_RDONLY:
+		err = r.Lock(sessionID)
+	case os.O_RDWR:
+		err = r.LockUnique(sessionID)
+	default:
+	}
+
 	if err != nil {
 		_ = r.Close(sessionID)
+		_ = r.Unlock(sessionID)
 		return "", err
 	} else {
-		switch mode {
-		case os.O_RDONLY:
-			err = r.Lock(sessionID)
-		case os.O_RDWR:
-			err = r.LockUnique(sessionID)
-		default:
-		}
+		err := session.Open()
 		if err != nil {
 			_ = r.Close(sessionID)
+			_ = r.Unlock(sessionID)
 			return "", err
 		} else {
 			return sessionID, nil
 		}
 	}
+
 }
 
 func (r *blobRepo) Flush(sessionID string) error {
@@ -83,11 +88,7 @@ func (r *blobRepo) Lock(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	if session.IsOpened() {
-		return r.locks.Lock(*session.GetPath(), sessionID)
-	} else {
-		return errors.New("session not opened")
-	}
+	return r.locks.Lock(*session.GetPath(), sessionID)
 }
 
 func (r *blobRepo) GetLock(path string) ([]string, error) {
@@ -98,11 +99,7 @@ func (r *blobRepo) LockUnique(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	if session.IsOpened() {
-		return r.locks.LockUnique(*session.GetPath(), sessionID)
-	} else {
-		return errors.New("session not opened")
-	}
+	return r.locks.LockUnique(*session.GetPath(), sessionID)
 }
 
 func (r *blobRepo) Unlock(sessionID string) error {

@@ -34,8 +34,9 @@ type DataServerOpt struct {
 }
 
 type DataServerDesc struct {
-	Opt   DataServerOpt
-	Viper *viper.Viper
+	Opt            DataServerOpt
+	Viper          *viper.Viper
+	NameServerUUID string
 }
 
 func NewDataServerOpt() DataServerOpt {

@@ -7,7 +7,8 @@ import (
 )
 
 type RmRequest struct {
-	Path string `form:"path" json:"path"`
+	Path      string `form:"path" json:"path"`
+	Recursive bool   `form:"recursive" json:"recursive"`
 }
 
 type RmResponse struct {
@@ -26,7 +27,7 @@ func (c2 controller) Rm(c *gin.Context) {
 		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, RmResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
-			err = c2.srv.NewBlobService().Rm(request.Path)
+			err = c2.srv.NewBlobService().Rm(request.Path, request.Recursive)
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, RmResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {

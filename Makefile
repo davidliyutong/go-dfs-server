@@ -4,6 +4,9 @@ DEMO_DATA_DIR = $(ROOT_PACKAGE)/demo_data
 _BINARY_PREFIX = go-dfs-
 AUTHOR = davidliyutong
 
+.PHONY: all
+all: go.build
+
 include scripts/make-rules/common.mk
 include scripts/make-rules/golang.mk
 
@@ -11,6 +14,7 @@ define USAGE_OPTIONS
 	N_SERVERS: number of servers to start
 endef
 export USAGE_OPTIONS
+
 
 .PHONY: clean
 clean: demo.clean
@@ -77,5 +81,7 @@ demo.stop:
 demo.clean:
 	@-rm -vrf $(DEMO_DATA_DIR)
 
-.PHONY: all
-all: clean build
+.PHONY: demo.reset
+demo.reset:
+	@-rm -vrf $(DEMO_DATA_DIR)/*/data/*
+

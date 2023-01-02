@@ -94,10 +94,31 @@ func (d *dataServerManager) UUIDProbe() (map[string]bool, error) {
 	}
 }
 
+func (d *dataServerManager) Register() error {
+
+	for _, client := range d.clients {
+		if client == nil {
+			continue
+		}
+		olderUUID, err := client.(v1.DataServerClient).SysRegister(GlobalServerDesc.UUID)
+		if err != nil {
+			return err
+		}
+		if olderUUID == "" {
+			return errors.New("some dataserver has been rebooted")
+		} else if olderUUID != GlobalServerDesc.UUID {
+			return errors.New("nameserver has been rebooted")
+		}
+	}
+	return nil
+
+}
+
 type DataServerManager interface {
 	ListServers() []config.RegisteredDataServer
 	AlivenessProbe() (map[string]bool, error)
 	UUIDProbe() (map[string]bool, error)
+	Register() error
 	GetAllClients() []interface{}
 	GetClient(uuid string) (interface{}, error)
 	GetClients(uuid []string) ([]interface{}, error)

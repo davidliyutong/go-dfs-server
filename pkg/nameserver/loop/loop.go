@@ -17,23 +17,17 @@ import (
 	"time"
 )
 
-func MainLoop(cmd *cobra.Command, args []string) {
-	/** 创建NameServerOption **/
-	desc := config.NewNameServerDesc()
-	err := desc.Parse(cmd) // 解析参数
+func runRegistration() {
+	err := server.BlobDataServerManger.Register()
 	if err != nil {
-		log.Fatalln("failed to parse configuration", err)
-		os.Exit(1)
+		log.Warningln(err)
 	}
-	desc.PostParse()
-	server.GlobalServerDesc = &desc //  设定全局Option
-	server.BlobDataServerManger = server.NewDataServerManager(server.GlobalServerDesc)
-	server.BlobSessionManager = server.NewSessionManager()
-	server.BlobLockManager = server.NewLockManager(server.GlobalServerDesc.Opt.Volume)
+}
 
+func runUUIDProbe() {
 	stat, err := server.BlobDataServerManger.UUIDProbe()
 	if err != nil {
-		log.Infoln("not all data server is ready")
+		log.Infoln("not all data servers are ready")
 	} else {
 		if len(stat) > 0 {
 			err := server.GlobalServerDesc.SaveConfig()
@@ -43,26 +37,22 @@ func MainLoop(cmd *cobra.Command, args []string) {
 				log.Infoln("writing updated UUID info to file")
 			}
 		} else {
-			log.Infoln("all data server is ready")
+			log.Infoln("all data servers are ready")
 		}
-
 	}
+}
 
-	log.Debugln("uuid:", desc.Opt.UUID)
-	log.Debugln("port:", desc.Opt.Network.Port)
-	log.Debugln("interface:", desc.Opt.Network.Interface)
-	log.Debugln("volume:", desc.Opt.Volume)
-	log.Debugln("accessKey:", desc.Opt.Auth.AccessKey)
-	log.Debugln("secretKey:", desc.Opt.Auth.SecretKey)
-	log.Debugln("dataServers:", server.BlobDataServerManger.ListServers())
+func registerPingGroup(router *gin.Engine) {
+	grp := router.Group(server.APILayout.Ping)
+	controller := ping.NewController(nil)
+	grp.GET("", controller.Info)
+}
 
-	/** 创建Gin Server **/
-	ginEngine := gin.New()
-
+func registerV1Group(router *gin.Engine) {
 	/** 注册认证模块 **/
 	/** FIXME: timeout fixed to time.Second*86400 **/
 	ginJWT, _ := auth.RegisterAuthModule(
-		ginEngine,
+		router,
 		server.APILayout.Auth.Self,
 		server.APILayout.Auth.Login,
 		server.APILayout.Auth.Refresh,
@@ -75,42 +65,79 @@ func MainLoop(cmd *cobra.Command, args []string) {
 
 	/** 如果开启认证，则创建认证路由组，否则创建普通路由组 **/
 	if server.GlobalServerDesc.Opt.AuthIsEnabled() {
-		v1API, _ = auth.CreateJWTAuthGroup(ginEngine, ginJWT, server.APILayout.V1.Self)
+		v1API, _ = auth.CreateJWTAuthGroup(router, ginJWT, server.APILayout.V1.Self)
 	} else {
-		v1API = ginEngine.Group(server.APILayout.V1.Self)
+		v1API = router.Group(server.APILayout.V1.Self)
 	}
-	//v1API = ginEngine.Group(server.APILayout.V1.Self)
-
-	/** /ping 永远是不认证的 **/
-	pingGroup := ginEngine.Group(server.APILayout.Ping)
-	pingController := ping.NewController(nil)
-	pingGroup.GET("", pingController.Info)
 
 	/** /v1/sys **/
-	sysPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Sys)
+	sysPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Sys.Self)
 	sysGroup := v1API.Group(sysPath)
 	sysController := sys.NewController(nil)
-	sysGroup.GET("info", sysController.Info)
-	sysGroup.GET("session", sysController.GetSession)
-	sysGroup.GET("sessions", sysController.GetSessions)
+	sysGroup.GET(server.APILayout.V1.Sys.Info, sysController.Info)
+	sysGroup.GET(server.APILayout.V1.Sys.Session, sysController.GetSession)
+	sysGroup.GET(server.APILayout.V1.Sys.Sessions, sysController.GetSessions)
+	sysGroup.GET(server.APILayout.V1.Sys.Servers, sysController.GetServers)
 
-	blobPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Blob)
+	blobPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Blob.Self)
 	blobGroup := v1API.Group(blobPath)
 	blobController := blob2.NewController(repo.Repo(server.BlobDataServerManger, server.BlobSessionManager, server.BlobLockManager))
-	blobGroup.POST("close", blobController.Close)
-	blobGroup.POST("flush", blobController.Flush)
-	blobGroup.POST("lock", blobController.Lock)
-	blobGroup.GET("lock", blobController.GetLock)
-	blobGroup.GET("ls", blobController.Ls)
-	blobGroup.POST("mkdir", blobController.Mkdir)
-	blobGroup.POST("open", blobController.Open)
-	blobGroup.GET("read", blobController.Read)
-	blobGroup.POST("rm", blobController.Rm)
-	blobGroup.POST("rmdir", blobController.Rmdir)
-	blobGroup.POST("seek", blobController.Seek)
-	blobGroup.POST("truncate", blobController.Truncate)
-	blobGroup.POST("unlock", blobController.Unlock)
-	blobGroup.POST("write", blobController.Write)
+
+	blobGroup.POST(server.APILayout.V1.Blob.Lock, blobController.Lock)
+	blobGroup.GET(server.APILayout.V1.Blob.Lock, blobController.GetLock)
+	blobGroup.DELETE(server.APILayout.V1.Blob.Lock, blobController.Unlock)
+
+	blobGroup.GET(server.APILayout.V1.Blob.Meta, blobController.GetFileMeta)
+
+	blobGroup.GET(server.APILayout.V1.Blob.Path, blobController.Ls)
+	blobGroup.POST(server.APILayout.V1.Blob.Path, blobController.Mkdir)
+	blobGroup.DELETE(server.APILayout.V1.Blob.Path, blobController.Rm)
+
+	blobGroup.GET(server.APILayout.V1.Blob.Session, blobController.Open)
+	blobGroup.DELETE(server.APILayout.V1.Blob.Session, blobController.Close)
+	blobGroup.POST(server.APILayout.V1.Blob.Session, blobController.Flush)
+
+	blobGroup.GET(server.APILayout.V1.Blob.IO, blobController.Read)
+	blobGroup.POST(server.APILayout.V1.Blob.IO, blobController.Write)
+	blobGroup.DELETE(server.APILayout.V1.Blob.IO, blobController.Truncate)
+
+	blobGroup.POST(server.APILayout.V1.Blob.Seek, blobController.Seek)
+}
+
+func createServer() *gin.Engine {
+	router := gin.New()
+	registerPingGroup(router)
+	registerV1Group(router)
+	return router
+}
+
+func MainLoop(cmd *cobra.Command, args []string) {
+	/** 创建NameServerOption **/
+	desc := config.NewNameServerDesc()
+	if err := desc.Parse(cmd); err != nil {
+		log.Fatalln("failed to parse configuration", err)
+		os.Exit(1)
+	} else {
+		desc.PostParse()
+		server.GlobalServerDesc = &desc //  设定全局Option
+		server.BlobDataServerManger = server.NewDataServerManager(server.GlobalServerDesc)
+		server.BlobSessionManager = server.NewSessionManager()
+		server.BlobLockManager = server.NewLockManager(server.GlobalServerDesc.Opt.Volume)
+	}
+
+	runRegistration()
+	runUUIDProbe()
+
+	log.Infoln("uuid:", desc.Opt.UUID)
+	log.Infoln("port:", desc.Opt.Network.Port)
+	log.Infoln("interface:", desc.Opt.Network.Interface)
+	log.Infoln("volume:", desc.Opt.Volume)
+	log.Infoln("accessKey:", desc.Opt.Auth.AccessKey)
+	log.Infoln("secretKey:", desc.Opt.Auth.SecretKey)
+	log.Infoln("dataServers:", server.BlobDataServerManger.ListServers())
+
+	/** 创建Gin Server **/
+	ginEngine := createServer()
 
 	_ = ginEngine.Run(server.GlobalServerDesc.Opt.Network.Interface + ":" + strconv.Itoa(server.GlobalServerDesc.Opt.Network.Port))
 

@@ -8,6 +8,7 @@ import (
 
 type WriteRequest struct {
 	Session string `form:"session" json:"session"`
+	Sync    bool   `form:"sync" json:"sync"`
 }
 
 type WriteResponse struct {
@@ -31,7 +32,7 @@ func (c2 controller) Write(c *gin.Context) {
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				size, err := c2.srv.NewBlobService().Write(request.Session, c, file)
+				size, err := c2.srv.NewBlobService().Write(request.Session, request.Sync, file)
 				if err != nil {
 					c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 				} else {

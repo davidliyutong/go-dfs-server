@@ -10,6 +10,7 @@ type Controller interface {
 	Close(c *gin.Context)
 	Flush(c *gin.Context)
 	GetLock(c *gin.Context)
+	GetFileMeta(c *gin.Context)
 	Lock(c *gin.Context)
 	Ls(c *gin.Context)
 	Mkdir(c *gin.Context)

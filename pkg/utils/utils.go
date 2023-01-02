@@ -184,6 +184,15 @@ func JoinSubPathSafe(path string, subpath string) (string, error) {
 	}
 }
 
+func IsSameDirectory(path1 string, path2 string) bool {
+	relPath, _ := filepath.Rel(path1, path2)
+	if relPath == "." {
+		return true
+	} else {
+		return false
+	}
+}
+
 func GetChunkPath(path string, chunkID int64) string {
 	return filepath.Join(path, strconv.FormatInt(chunkID, 10)+".dat")
 }
@@ -287,6 +296,15 @@ func HasError(arr []error) bool {
 	return false
 }
 
+func GetFirstError(arr []error) error {
+	for _, err := range arr {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func MaxInt64(x int64, y int64) int64 {
 	if x >= y {
 		return x
@@ -309,4 +327,12 @@ func GetChunkID(offset int64) int64 {
 
 func GetChunkOffset(offset int64) int64 {
 	return offset % v1.DefaultBlobChunkSize
+}
+
+func ReceiveErrors(errChan chan error) []error {
+	res := make([]error, 0)
+	for err := range errChan {
+		res = append(res, err)
+	}
+	return res
 }

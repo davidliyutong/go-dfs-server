@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"time"
 )
 
 type GetSessionRequest struct {
@@ -11,12 +12,14 @@ type GetSessionRequest struct {
 }
 
 type GetSessionResponse struct {
-	Code     int64  `form:"code" json:"code"`
-	Msg      string `form:"msg" json:"msg"`
-	Path     string `form:"path" json:"path"`
-	IsOpened bool   `form:"is_opened" json:"is_opened"`
-	Offset   int64  `form:"offset" json:"offset"`
-	Size     int64  `form:"size" json:"size"`
+	Code   int64     `form:"code" json:"code"`
+	Msg    string    `form:"msg" json:"msg"`
+	Path   string    `form:"path" json:"path"`
+	Mode   int       `form:"mode" json:"mode"`
+	Time   time.Time `form:"time" json:"time"`
+	Opened bool      `form:"opened" json:"opened"`
+	Offset int64     `form:"offset" json:"offset"`
+	Size   int64     `form:"size" json:"size"`
 }
 
 func (o *controller) GetSession(c *gin.Context) {
@@ -34,7 +37,15 @@ func (o *controller) GetSession(c *gin.Context) {
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, GetSessionResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				c.IndentedJSON(http.StatusOK, GetSessionResponse{Code: http.StatusOK, Msg: "", Path: *session.GetPath(), IsOpened: session.IsOpened(), Offset: *session.GetOffset(), Size: session.GetBlobMetaData().Size})
+				c.IndentedJSON(http.StatusOK, GetSessionResponse{
+					Code:   http.StatusOK,
+					Msg:    "",
+					Path:   *session.GetPath(),
+					Mode:   *session.GetMode(),
+					Time:   session.GetTime(),
+					Offset: *session.GetOffset(),
+					Opened: session.IsOpened(),
+					Size:   session.GetBlobMetaData().Size})
 			}
 		}
 	}

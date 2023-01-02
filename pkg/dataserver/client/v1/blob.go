@@ -361,11 +361,10 @@ func (c *dataServerClient) BlobReadFileMeta(path string) (map[int64]int64, map[i
 		return nil, nil, err
 	}
 
-	payload := url.Values{
-		"path": {path},
-	}.Encode()
-
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s?%s", targetUrl, payload), nil)
+	req, _ := http.NewRequest("GET", targetUrl, nil)
+	q := req.URL.Query()
+	q.Add("path", path)
+	req.URL.RawQuery = q.Encode()
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -398,12 +397,11 @@ func (c *dataServerClient) BlobReadChunkMeta(path string, id int64) (int64, stri
 		return -1, "", err
 	}
 
-	payload := url.Values{
-		"path": {path},
-		"id":   {strconv.FormatInt(id, 10)},
-	}.Encode()
-
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s?%s", targetUrl, payload), nil)
+	req, _ := http.NewRequest("GET", targetUrl, nil)
+	q := req.URL.Query()
+	q.Add("path", path)
+	q.Add("id", strconv.FormatInt(id, 10))
+	req.URL.RawQuery = q.Encode()
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

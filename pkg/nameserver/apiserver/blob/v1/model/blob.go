@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"os"
 )
 
@@ -21,7 +22,7 @@ type BlobMetaData struct {
 }
 
 func (o *BlobMetaData) GetNumOfChunks() int64 {
-	return o.Size / DefaultBlobChunkSize
+	return int64(math.Ceil(float64(o.Size) / float64(DefaultBlobChunkSize)))
 }
 
 func (o *BlobMetaData) GetChunkDistribution(chunkID int64) ([]string, error) {
@@ -59,14 +60,17 @@ func (o *BlobMetaData) Dump(path string) error {
 	if err != nil {
 		return err
 	}
-	defer func(filePtr *os.File) {
-		err := filePtr.Close()
-		if err != nil {
 
-		}
-	}(filePtr)
 	encoder := json.NewEncoder(filePtr)
 	err = encoder.Encode(o)
+	if err != nil {
+		return filePtr.Close()
+	}
+	err = filePtr.Close()
+	if err == nil {
+		err = os.Chmod(path, 0775)
+		return err
+	}
 	return err
 }
 

@@ -13,8 +13,10 @@ func Login(cmd *cobra.Command, args []string) {
 	log.Debugln("client auth")
 
 	opt := config.NewClientOpt()
+
 	authOpt := config.NewClientAuthOpt()
 	vipCfg, err := opt.Parse(cmd)
+	var dfsClient v1.NameServerClient
 	if err != nil {
 		if len(args) <= 0 {
 			log.Errorln("no url specified")
@@ -22,7 +24,7 @@ func Login(cmd *cobra.Command, args []string) {
 		}
 		opt.MustBindURL(args[0])
 		authOpt.MustBindAuthentication(cmd)
-		dfsClient := v1.NewNameServerClientFromOpt(opt)
+		dfsClient = v1.NewNameServerClientFromOpt(opt)
 		dfsClient.MustAuthLogin(authOpt.AccessKey, authOpt.SecretKey)
 		log.Println("login success")
 	} else {
@@ -31,7 +33,7 @@ func Login(cmd *cobra.Command, args []string) {
 			opt.MustBindURL(args[0])
 			authOpt.MustBindAuthentication(cmd)
 		}
-		dfsClient := v1.NewNameServerClientFromOpt(opt)
+		dfsClient = v1.NewNameServerClientFromOpt(opt)
 		_, err := dfsClient.AuthRefresh()
 		if err != nil {
 			_, err = dfsClient.AuthLogin(authOpt.AccessKey, authOpt.SecretKey)
@@ -44,5 +46,5 @@ func Login(cmd *cobra.Command, args []string) {
 		log.Println("renew token success")
 	}
 
-	utils.DumpOption(opt, vipCfg.GetString("_config"), true)
+	utils.DumpOption(dfsClient.Opt(), vipCfg.GetString("_config"), true)
 }

@@ -30,7 +30,7 @@ func (b blobService) Write(sessionID string, syncWrite bool, file *multipart.Fil
 		wg := new(sync.WaitGroup)
 		errChan := make(chan error, 16)
 		errs := make([]error, 0)
-		buf := make([]byte, v1.DefaultBlobChunkSize)
+
 		var numBytes int64 = 0
 
 		wg.Add(1)
@@ -48,6 +48,7 @@ func (b blobService) Write(sessionID string, syncWrite bool, file *multipart.Fil
 		}()
 
 		for {
+			buf := make([]byte, v1.DefaultBlobChunkSize)
 			n, err := src.Read(buf)
 			if err != nil && err != io.EOF {
 				errChan <- err

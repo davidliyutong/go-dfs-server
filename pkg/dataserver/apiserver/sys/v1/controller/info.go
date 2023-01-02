@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"go-dfs-server/pkg/dataserver/server"
 	"net/http"
 )
@@ -20,4 +21,5 @@ func (o *controller) Info(c *gin.Context) {
 		Role:    "dataserver",
 		Version: server.DataServerAPIVersion,
 	})
+	log.Debugln("sys/Info ")
 }

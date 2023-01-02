@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"go-dfs-server/pkg/dataserver/server"
 	"net/http"
 )
@@ -18,4 +19,5 @@ func (o *controller) UUID(c *gin.Context) {
 		Msg:  "",
 		UUID: server.GlobalServerDesc.Opt.UUID,
 	})
+	log.Debug("sys/UUID ")
 }

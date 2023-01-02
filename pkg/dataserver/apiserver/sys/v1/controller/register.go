@@ -34,7 +34,6 @@ func (o *controller) Register(c *gin.Context) {
 			c.IndentedJSON(http.StatusOK, RegisterResponse{Code: http.StatusOK, Msg: "", UUID: lastUUID})
 		}
 
-		log.Debug("blob/CreateChunk ", request)
+		log.Debug("sys/Register ", request)
 	}
-
 }

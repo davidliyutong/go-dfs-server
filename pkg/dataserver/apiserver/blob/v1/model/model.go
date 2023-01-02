@@ -45,13 +45,11 @@ func (o *BlobMetaData) Dump() error {
 	if err != nil {
 		return err
 	}
-	defer func(filePtr *os.File) {
-		err := filePtr.Close()
-		if err != nil {
-
-		}
-	}(filePtr)
 	encoder := json.NewEncoder(filePtr)
 	err = encoder.Encode(o)
+	if err != nil {
+		return filePtr.Close()
+	}
+	err = filePtr.Close()
 	return err
 }

@@ -28,11 +28,11 @@ func (b blobService) Read(sessionID string, size int64, c *gin.Context) (int64, 
 		n, err := session.Read(buf, batchSize)
 		if err != nil && err != io.EOF {
 			return bytesRead, err
-		} else if err == io.EOF {
+		} else if n == 0 && err == io.EOF {
 			return bytesRead, nil
 		}
 
-		_, err = c.Writer.Write(buf[:batchSize])
+		_, err = c.Writer.Write(buf[:n])
 		if err != nil {
 			return bytesRead, err
 		}

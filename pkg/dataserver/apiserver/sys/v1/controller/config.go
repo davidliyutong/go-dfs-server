@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"go-dfs-server/pkg/dataserver/server"
 	"net/http"
 )
@@ -22,4 +23,5 @@ func (o *controller) Config(c *gin.Context) {
 		Endpoint: server.GlobalServerDesc.Opt.Network.Endpoint,
 		Volume:   server.GlobalServerDesc.Opt.Volume,
 	})
+	log.Debugln("sys/Config ")
 }

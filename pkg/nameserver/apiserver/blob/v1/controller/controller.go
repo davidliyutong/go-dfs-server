@@ -7,20 +7,12 @@ import (
 )
 
 type Controller interface {
-	Close(c *gin.Context)
-	Flush(c *gin.Context)
-	GetLock(c *gin.Context)
-	GetFileMeta(c *gin.Context)
-	Lock(c *gin.Context)
+	Sync(c *gin.Context)
 	Ls(c *gin.Context)
 	Mkdir(c *gin.Context)
 	Open(c *gin.Context)
 	Read(c *gin.Context)
 	Rm(c *gin.Context)
-	Rmdir(c *gin.Context)
-	Seek(c *gin.Context)
-	Truncate(c *gin.Context)
-	Unlock(c *gin.Context)
 	Write(c *gin.Context)
 }
 

@@ -8,14 +8,13 @@ import (
 )
 
 type GetSessionRequest struct {
-	Session string `form:"session" json:"session"`
+	Path string `form:"path" json:"path"`
 }
 
 type GetSessionResponse struct {
 	Code   int64     `form:"code" json:"code"`
 	Msg    string    `form:"msg" json:"msg"`
 	Path   string    `form:"path" json:"path"`
-	Mode   int       `form:"mode" json:"mode"`
 	Time   time.Time `form:"time" json:"time"`
 	Opened bool      `form:"opened" json:"opened"`
 	Offset int64     `form:"offset" json:"offset"`
@@ -30,20 +29,18 @@ func (o *controller) GetSession(c *gin.Context) {
 		log.Debug(err)
 		c.IndentedJSON(http.StatusBadRequest, GetSessionResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
-		if request.Session == "" {
+		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, GetSessionResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
-			session, err := o.srv.NewSysService().GetSession(request.Session)
+			session, err := o.srv.NewSysService().GetSession(request.Path)
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, GetSessionResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
 				c.IndentedJSON(http.StatusOK, GetSessionResponse{
 					Code:   http.StatusOK,
 					Msg:    "",
-					Path:   *session.GetPath(),
-					Mode:   *session.GetMode(),
+					Path:   *session.Path(),
 					Time:   session.GetTime(),
-					Offset: *session.GetOffset(),
 					Opened: session.IsOpened(),
 					Size:   session.GetBlobMetaData().Size})
 			}

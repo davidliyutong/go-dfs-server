@@ -50,7 +50,7 @@ func (c *nameServerClient) SysInfo() (v13.InfoResponse, error) {
 }
 
 func (c *nameServerClient) SysSession(sessionID string) (v13.GetSessionResponse, error) {
-	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.Session)
+	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.File)
 	if err != nil {
 		return v13.GetSessionResponse{}, err
 	}

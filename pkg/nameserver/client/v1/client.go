@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go-dfs-server/pkg/config"
 	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/controller"
-	v12 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
 	v13 "go-dfs-server/pkg/nameserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/nameserver/server"
 	ping "go-dfs-server/pkg/ping/v1"
@@ -24,25 +23,19 @@ type NameServerClient interface {
 	GetAPIUrl(keys ...string) (string, error)
 	Ping() error
 	Opt() *config.ClientOpt
+
 	AuthIsEnabled() bool
 	AuthLogin(accessKey string, secretKey string) (string, error)
 	MustAuthLogin(accessKey string, secretKey string) string
 	AuthRefresh() (string, error)
 	MustAuthRefresh() string
-	BlobOpen(path string, mode int) (string, error)
-	BlobClose(sessionID string) error
-	BlobFlush(sessionID string) error
-	BlobRead(sessionID string, size int64) (io.ReadCloser, error)
-	BlobWrite(sessionID string, size int64, data io.Reader, sync bool) error
-	BlobTruncate(sessionID string, size int64) error
-	BlobSeek(sessionID string, offset int64, whence int) error
-	BlobLock(sessionID string) error
-	BlobUnlock(sessionID string) error
-	BlobGetLock(path string) ([]string, error)
+
+	Open(path string, mode int) (Handle, error)
+
 	BlobMkdir(path string) error
 	BlobLs(path string) ([]v1.LsFileInfo, error)
 	BlobRm(path string, recursive bool) error
-	BlobGetFileMeta(path string) (v12.BlobMetaData, error)
+
 	SysInfo() (v13.InfoResponse, error)
 	SysSession(sessionID string) (v13.GetSessionResponse, error)
 	SysSessions() ([]string, error)

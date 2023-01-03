@@ -8,7 +8,7 @@ import (
 
 type SysService interface {
 	Info() (string, error)
-	GetSession(id string) (server.Session, error)
+	GetSession(path string) (server.Session, error)
 	GetSessions() ([]string, error)
 	GetServers() ([]config.RegisteredDataServer, error)
 }
@@ -27,12 +27,12 @@ func (o *sysService) GetSessions() ([]string, error) {
 	sessions := server.BlobSessionManager.ListSessions()
 	res := make([]string, len(sessions))
 	for idx, session := range sessions {
-		res[idx] = *session.GetID()
+		res[idx] = *session.ID()
 	}
 	return res, nil
 }
-func (o *sysService) GetSession(id string) (server.Session, error) {
-	return server.BlobSessionManager.Get(id)
+func (o *sysService) GetSession(path string) (server.Session, error) {
+	return server.BlobSessionManager.Get(path)
 }
 
 func (o *sysService) Info() (string, error) {

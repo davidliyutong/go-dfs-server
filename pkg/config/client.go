@@ -88,6 +88,11 @@ func (o *ClientOpt) Parse(cmd *cobra.Command) (*viper.Viper, error) {
 	return vipCfg, nil
 }
 
+func (o *ClientOpt) PostParse() {
+	// TODO: set default log level
+	log.SetLevel(log.DebugLevel)
+}
+
 func (o *ClientOpt) BindURL(url string) error {
 	protoReg := regexp.MustCompile("^(dfs|dfss)://")
 	ipReg := regexp.MustCompile(`(dfs|dfss)://([0-9.]*)[:]?`)

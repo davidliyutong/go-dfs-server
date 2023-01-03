@@ -18,14 +18,10 @@ type NameServerLayoutAuth struct {
 	Refresh string
 }
 type NameServerLayoutBlob struct {
-	Self    string
-	Lock    string
-	Meta    string
-	Path    string
-	Session string
-	IO      string
-	Rm      string
-	Seek    string
+	Self string
+	Path string
+	File string
+	IO   string
 }
 
 type NameServerLayoutSys struct {
@@ -60,13 +56,10 @@ var APILayout = NameServerLayoutRoot{
 	V1: NameServerLayoutV1{
 		Self: "/v1",
 		Blob: NameServerLayoutBlob{
-			Self:    "/v1/blob",
-			Lock:    "lock",
-			Meta:    "meta",
-			Path:    "path",
-			Session: "session",
-			IO:      "io",
-			Seek:    "seek",
+			Self: "/v1/blob",
+			Path: "path",
+			File: "file",
+			IO:   "io",
 		},
 		Sys: NameServerLayoutSys{
 			Self:     "/v1/sys",

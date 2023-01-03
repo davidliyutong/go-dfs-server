@@ -7,8 +7,10 @@ import (
 )
 
 type ReadRequest struct {
-	Session string `form:"session" json:"session"`
-	Size    int64  `form:"size" json:"size"`
+	Path        string `form:"path" json:"path"`
+	ChunkID     int64  `form:"chunk_id" json:"chunk_id"`
+	ChunkOffset int64  `form:"chunk_offset" json:"chunk_offset"`
+	Size        int64  `form:"size" json:"size"`
 }
 
 type ReadResponse struct {
@@ -24,10 +26,10 @@ func (c2 controller) Read(c *gin.Context) {
 		log.Debug(err)
 		c.IndentedJSON(http.StatusBadRequest, ReadResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
-		if request.Session == "" {
+		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, ReadResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
-			_, err := c2.srv.NewBlobService().Read(request.Session, request.Size, c)
+			_, err := c2.srv.NewBlobService().Read(request.Path, request.ChunkID, request.ChunkOffset, request.Size, c)
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, ReadResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			}

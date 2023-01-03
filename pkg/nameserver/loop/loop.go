@@ -1,114 +1,40 @@
 package loop
 
 import (
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go-dfs-server/pkg/auth"
 	"go-dfs-server/pkg/config"
-	blob2 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/controller"
-	repo "go-dfs-server/pkg/nameserver/apiserver/blob/v1/repo/memory"
-	sys "go-dfs-server/pkg/nameserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/nameserver/server"
-	ping "go-dfs-server/pkg/ping/v1"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 )
 
-func runRegistration() {
-	err := server.BlobDataServerManger.Register()
+func runSessionCleaner() {
+	log.Info("Starting session cleaner")
+	err := server.BlobSessionManager.SetTimeOut(time.Second * 60) // TODO: make this configurable
 	if err != nil {
-		log.Warningln(err)
+		return
 	}
-}
-
-func runUUIDProbe() {
-	stat, err := server.BlobDataServerManger.UUIDProbe()
-	if err != nil {
-		log.Infoln("not all data servers are ready")
-	} else {
-		if len(stat) > 0 {
-			err := server.GlobalServerDesc.SaveConfig()
+	go func() {
+		for {
+			err := server.BlobSessionManager.Clean()
 			if err != nil {
-				log.Warningln("failed to save configuration")
-			} else {
-				log.Infoln("writing updated UUID info to file")
+				log.Warningln(err)
 			}
-		} else {
-			log.Infoln("all data servers are ready")
+			log.Debugln("trigger clean, active sessions: ", server.BlobSessionManager.ListSessions())
+
+			time.Sleep(time.Second * 30) // TODO: make this configurable
 		}
-	}
+	}()
 }
 
-func registerPingGroup(router *gin.Engine) {
-	grp := router.Group(server.APILayout.Ping)
-	controller := ping.NewController(nil)
-	grp.GET("", controller.Info)
+func runErrorHandler() {
+
 }
 
-func registerV1Group(router *gin.Engine) {
-	/** 注册认证模块 **/
-	/** FIXME: timeout fixed to time.Second*86400 **/
-	ginJWT, _ := auth.RegisterAuthModule(
-		router,
-		server.APILayout.Auth.Self,
-		server.APILayout.Auth.Login,
-		server.APILayout.Auth.Refresh,
-		time.Second*86400,
-		auth.RepoAuthnBasic,
-		auth.RepoAuthzBasic)
+func runAlivenessChecker() {
 
-	/** 路由组 **/
-	var v1API *gin.RouterGroup
-
-	/** 如果开启认证，则创建认证路由组，否则创建普通路由组 **/
-	if server.GlobalServerDesc.Opt.AuthIsEnabled() {
-		v1API, _ = auth.CreateJWTAuthGroup(router, ginJWT, server.APILayout.V1.Self)
-	} else {
-		v1API = router.Group(server.APILayout.V1.Self)
-	}
-
-	/** /v1/sys **/
-	sysPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Sys.Self)
-	sysGroup := v1API.Group(sysPath)
-	sysController := sys.NewController(nil)
-	sysGroup.GET(server.APILayout.V1.Sys.Info, sysController.Info)
-	sysGroup.GET(server.APILayout.V1.Sys.Session, sysController.GetSession)
-	sysGroup.GET(server.APILayout.V1.Sys.Sessions, sysController.GetSessions)
-	sysGroup.GET(server.APILayout.V1.Sys.Servers, sysController.GetServers)
-
-	blobPath, _ := filepath.Rel(server.APILayout.V1.Self, server.APILayout.V1.Blob.Self)
-	blobGroup := v1API.Group(blobPath)
-	blobController := blob2.NewController(repo.Repo(server.BlobDataServerManger, server.BlobSessionManager, server.BlobLockManager))
-
-	blobGroup.POST(server.APILayout.V1.Blob.Lock, blobController.Lock)
-	blobGroup.GET(server.APILayout.V1.Blob.Lock, blobController.GetLock)
-	blobGroup.DELETE(server.APILayout.V1.Blob.Lock, blobController.Unlock)
-
-	blobGroup.GET(server.APILayout.V1.Blob.Meta, blobController.GetFileMeta)
-
-	blobGroup.GET(server.APILayout.V1.Blob.Path, blobController.Ls)
-	blobGroup.POST(server.APILayout.V1.Blob.Path, blobController.Mkdir)
-	blobGroup.DELETE(server.APILayout.V1.Blob.Path, blobController.Rm)
-
-	blobGroup.GET(server.APILayout.V1.Blob.Session, blobController.Open)
-	blobGroup.DELETE(server.APILayout.V1.Blob.Session, blobController.Close)
-	blobGroup.POST(server.APILayout.V1.Blob.Session, blobController.Flush)
-
-	blobGroup.GET(server.APILayout.V1.Blob.IO, blobController.Read)
-	blobGroup.POST(server.APILayout.V1.Blob.IO, blobController.Write)
-	blobGroup.DELETE(server.APILayout.V1.Blob.IO, blobController.Truncate)
-
-	blobGroup.POST(server.APILayout.V1.Blob.Seek, blobController.Seek)
-}
-
-func createServer() *gin.Engine {
-	router := gin.New()
-	registerPingGroup(router)
-	registerV1Group(router)
-	return router
 }
 
 func MainLoop(cmd *cobra.Command, args []string) {
@@ -127,6 +53,8 @@ func MainLoop(cmd *cobra.Command, args []string) {
 
 	runRegistration()
 	runUUIDProbe()
+
+	runSessionCleaner()
 
 	log.Infoln("uuid:", desc.Opt.UUID)
 	log.Infoln("port:", desc.Opt.Network.Port)

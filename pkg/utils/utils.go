@@ -336,3 +336,45 @@ func ReceiveErrors(errChan chan error) []error {
 	}
 	return res
 }
+
+func CompareChunkChecksums(chunkChecksums1 []string, chunkChecksums2 []string) bool {
+	minLength := MinInt64(int64(len(chunkChecksums1)), int64(len(chunkChecksums2)))
+	for i := 0; i < int(minLength); i++ {
+		if chunkChecksums1[i] != chunkChecksums2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func IsValidBlobMetaData(blob v1.BlobMetaData) bool {
+	switch {
+	case len(blob.ChunkChecksums) <= 0 || len(blob.ChunkDistribution) <= 0 || len(blob.ChunkChecksums) != len(blob.ChunkDistribution):
+		return false
+	case GetChunkID(blob.Size+1) != int64(len(blob.ChunkChecksums)-1) || GetChunkID(blob.Size) != int64(len(blob.ChunkChecksums)-1):
+		return false
+	}
+	return true
+}
+
+func IsSameString(s []string) bool {
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[i-1] {
+			return false
+		}
+	}
+	return true
+}
+
+func IsSameInt64(s []int64) bool {
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[i-1] {
+			return false
+		}
+	}
+	return true
+}
+
+func IsNewerThan(src v1.BlobMetaData, dst v1.BlobMetaData) bool {
+	return src.Version > dst.Version
+}

@@ -7,14 +7,18 @@ import (
 )
 
 type WriteRequest struct {
-	Session string `form:"session" json:"session"`
-	Sync    bool   `form:"sync" json:"sync"`
+	Path        string `form:"path" json:"path"`
+	ChunkID     int64  `form:"chunk_id" json:"chunk_id"`
+	ChunkOffset int64  `form:"chunk_offset" json:"chunk_offset"`
+	Size        int64  `form:"size" json:"size"`
+	Version     int64  `form:"version" json:"version"`
 }
 
 type WriteResponse struct {
-	Code int64  `form:"code" json:"code"`
-	Msg  string `form:"msg" json:"msg"`
-	Size int64  `form:"size" json:"size"`
+	Code     int64  `form:"code" json:"code"`
+	Msg      string `form:"msg" json:"msg"`
+	Checksum string `form:"md5" json:"md5"`
+	Written  int    `form:"written" json:"written"`
 }
 
 func (c2 controller) Write(c *gin.Context) {
@@ -25,18 +29,18 @@ func (c2 controller) Write(c *gin.Context) {
 		log.Debug(err)
 		c.IndentedJSON(http.StatusBadRequest, WriteResponse{Code: http.StatusBadRequest, Msg: "failed"})
 	} else {
-		if request.Session == "" {
+		if request.Path == "" {
 			c.IndentedJSON(http.StatusBadRequest, WriteResponse{Code: http.StatusBadRequest, Msg: "wrong parameter"})
 		} else {
 			file, err := c.FormFile("file")
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				size, err := c2.srv.NewBlobService().Write(request.Session, request.Sync, file)
+				checksum, size, err := c2.srv.NewBlobService().Write(request.Path, request.ChunkID, request.ChunkOffset, request.Size, request.Version, file)
 				if err != nil {
 					c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 				} else {
-					c.IndentedJSON(http.StatusOK, WriteResponse{Code: http.StatusOK, Msg: "", Size: size})
+					c.IndentedJSON(http.StatusOK, WriteResponse{Code: http.StatusOK, Msg: "", Checksum: checksum, Written: int(size)})
 				}
 			}
 		}

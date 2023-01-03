@@ -1,45 +1,34 @@
 package v1
 
 import (
+	"bytes"
+	"errors"
 	"github.com/gin-gonic/gin"
 	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
-	"go-dfs-server/pkg/utils"
 	"io"
-	"math"
 )
 
-func (b blobService) Read(sessionID string, size int64, c *gin.Context) (int64, error) {
-	session, err := b.repo.BlobRepo().SessionManager().Get(sessionID)
+func (b blobService) Read(path string, chunkID int64, chunkOffset int64, size int64, c *gin.Context) (int64, error) {
+
+	if chunkOffset < 0 || chunkOffset >= v1.DefaultBlobChunkSize {
+		return 0, errors.New("invalid chunk offset")
+	} else if size < 0 {
+		size = v1.DefaultBlobChunkSize - chunkOffset
+	}
+	if size+chunkOffset > v1.DefaultBlobChunkSize {
+		return 0, errors.New("chunk size is too large")
+	}
+
+	buf := bytes.NewBuffer(nil)
+	n, err := b.repo.BlobRepo().Read(buf, path, chunkID, chunkOffset, size)
+	if n != size {
+		return n, errors.New("read size is not equal to size")
+	}
 	if err != nil {
-		return -1, err
-	}
-	var bytesToRead int64
-	var bytesRead int64 = 0
-	if size <= 0 {
-		bytesToRead = math.MaxInt64
-	} else {
-		bytesToRead = size
+		return n, err
 	}
 
-	var batchSize int64
-	var buf = make([]byte, v1.DefaultBlobChunkSize)
-	for bytesToRead > 0 {
-		batchSize = utils.MinInt64(bytesToRead, v1.DefaultBlobChunkSize)
-		n, err := session.Read(buf, batchSize)
-		if err != nil && err != io.EOF {
-			return bytesRead, err
-		} else if n == 0 && err == io.EOF {
-			return bytesRead, nil
-		}
+	_, _ = io.Copy(c.Writer, buf)
+	return n, nil
 
-		_, err = c.Writer.Write(buf[:n])
-		if err != nil {
-			return bytesRead, err
-		}
-
-		bytesRead += n
-		bytesToRead -= n
-
-	}
-	return bytesRead, nil
 }

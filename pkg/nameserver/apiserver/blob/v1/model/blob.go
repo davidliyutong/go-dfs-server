@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"math"
 	"os"
 )
 
@@ -15,6 +14,7 @@ const BlobDirTypeName = "dir"
 type BlobMetaData struct {
 	Type              string     `json:"type"`
 	BaseName          string     `json:"base_name"`
+	Version           int64      `json:"version"`
 	Size              int64      `json:"size"`
 	Versions          []int64    `json:"versions"`
 	ChunkChecksums    []string   `json:"chunk_checksums"`
@@ -22,7 +22,7 @@ type BlobMetaData struct {
 }
 
 func (o *BlobMetaData) GetNumOfChunks() int64 {
-	return int64(math.Ceil(float64(o.Size) / float64(DefaultBlobChunkSize)))
+	return o.Size/DefaultBlobChunkSize + 1
 }
 
 func (o *BlobMetaData) GetChunkDistribution(chunkID int64) ([]string, error) {

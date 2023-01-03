@@ -33,7 +33,7 @@ func (c2 controller) Ls(c *gin.Context) {
 		} else {
 			info, err := c2.srv.NewBlobService().Ls(request.Path)
 			if err != nil {
-				c.IndentedJSON(http.StatusInternalServerError, SeekResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
+				c.IndentedJSON(http.StatusInternalServerError, LsResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
 				resp := LsResponse{Code: http.StatusOK, Msg: ""}
 				for _, v := range info {

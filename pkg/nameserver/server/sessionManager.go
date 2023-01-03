@@ -8,34 +8,48 @@ import (
 )
 
 type SessionManager interface {
-	New(path string, filePath string, mode int) (string, error)
-	Delete(id string) error
+	New(path string, filePath string, mode int) (Session, error)
+	Delete(path string) error
 	Clean() error
 	ListSessions() []Session
-	Get(id string) (Session, error)
+	Get(path string) (Session, error)
 	SetTimeOut(time.Duration) error
 	Reset() error
 }
 
 type sessionManager struct {
 	sessions sync.Map
-	Timeout  time.Duration
+	timeout  time.Duration
 }
 
 func (s *sessionManager) Reset() error {
 	s.sessions = sync.Map{}
+	s.timeout = time.Minute * 30
 	return nil
 }
 
-func (s *sessionManager) New(path string, filePath string, mode int) (string, error) {
-	id := utils.MustGenerateUUID()
-	s.sessions.Store(id, NewSession(path, filePath, id, mode))
-	return id, nil
+func (s *sessionManager) New(path string, filePath string, mode int) (Session, error) {
+	_, ok := s.sessions.Load(path)
+	if ok {
+		return nil, errors.New("file already opened")
+	} else {
+		session := NewSession(path, filePath, utils.MustGenerateUUID(), mode)
+		s.sessions.Store(path, session)
+		return session, nil
+	}
+
 }
 
-func (s *sessionManager) Delete(id string) error {
-	s.sessions.Delete(id)
-	return nil
+func (s *sessionManager) Delete(path string) error {
+	session, ok := s.sessions.Load(path)
+	if ok {
+		session.(Session).Delete()
+		session.(Session).Wait()
+		s.sessions.Delete(path)
+		return nil
+	} else {
+		return errors.New("session not found")
+	}
 }
 
 func (s *sessionManager) ListSessions() []Session {
@@ -47,8 +61,8 @@ func (s *sessionManager) ListSessions() []Session {
 	return sessions
 }
 
-func (s *sessionManager) Get(id string) (Session, error) {
-	session, ok := s.sessions.Load(id)
+func (s *sessionManager) Get(path string) (Session, error) {
+	session, ok := s.sessions.Load(path)
 	if ok {
 		return session.(Session), nil
 	} else {
@@ -57,12 +71,12 @@ func (s *sessionManager) Get(id string) (Session, error) {
 }
 
 func (s *sessionManager) SetTimeOut(duration time.Duration) error {
-	s.Timeout = duration
+	s.timeout = duration
 	return nil
 }
 
-func (s *sessionManager) Close(id string) error {
-	session, ok := s.sessions.Load(id)
+func (s *sessionManager) Close(path string) error {
+	session, ok := s.sessions.Load(path)
 	if ok {
 		return session.(Session).Close()
 	} else {
@@ -74,17 +88,25 @@ func (s *sessionManager) Clean() error {
 	var deadSessions []string
 	currTime := time.Now()
 	s.sessions.Range(func(k, v interface{}) bool {
-		if currTime.Sub(v.(Session).GetTime()) > s.Timeout {
+		if currTime.Sub(v.(Session).GetTime()) > s.timeout {
 			deadSessions = append(deadSessions, k.(string))
 		}
 		return true
 	})
-	for _, id := range deadSessions {
-		s.sessions.Delete(id)
+	for _, path := range deadSessions {
+		path := path
+
+		err := s.Delete(path)
+		if err != nil {
+			// TODO: handle error
+		}
 	}
 	return nil
 }
 
 func NewSessionManager() SessionManager {
-	return &sessionManager{}
+	return &sessionManager{
+		sessions: sync.Map{},
+		timeout:  time.Minute * 30,
+	}
 }

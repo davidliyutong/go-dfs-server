@@ -2,11 +2,11 @@ package memory
 
 import (
 	"bytes"
-	"errors"
 	v12 "go-dfs-server/pkg/dataserver/client/v1"
 	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
 	repo2 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/repo"
 	"go-dfs-server/pkg/nameserver/server"
+	"go-dfs-server/pkg/status"
 	"go-dfs-server/pkg/utils"
 	"io"
 	"os"
@@ -71,12 +71,12 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 
 			return session.GetBlobMetaData(), err
 		}
-		return v1.BlobMetaData{}, errors.New("not a valid file")
+		return v1.BlobMetaData{}, status.ErrFileInValid
 	} else {
 
 		switch mode {
 		case os.O_RDONLY:
-			return v1.BlobMetaData{}, errors.New("file does not exist")
+			return v1.BlobMetaData{}, status.ErrFileNotExist
 		case os.O_WRONLY:
 			fallthrough
 		case os.O_RDWR:
@@ -106,7 +106,7 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 			// layout file on data servers
 			clients := r.DataServerManager().GetAllClients()
 			if len(clients) < 3 {
-				return v1.BlobMetaData{}, session.SetErrorClose(errors.New("no enough data server available"))
+				return v1.BlobMetaData{}, session.SetErrorClose(status.ErrDataServerInsufficient)
 			}
 			clientErrors := make([]error, len(clients))
 			createStatus := make([]string, len(clients))
@@ -144,17 +144,17 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 
 			if utils.HasError(clientErrors) {
 				if numSuccessCreation >= server.NameServerNumOfReplicas {
-					_ = session.SetError(errors.New("some dataserver is offline"))
+					_ = session.SetError(status.ErrDataServerOfflineSome)
 				} else {
 					for _, err := range clientErrors {
 						_ = session.SetErrorClose(err)
 					}
-					return v1.BlobMetaData{}, session.SetErrorClose(errors.New("create file failed, dataserver error"))
+					return v1.BlobMetaData{}, session.SetErrorClose(status.ErrCreateErrorRemote)
 				}
 			} else if err1 != nil || err2 != nil {
 				_ = session.SetErrorClose(err1)
 				_ = session.SetErrorClose(err2)
-				return v1.BlobMetaData{}, session.SetErrorClose(errors.New("create file failed, local error"))
+				return v1.BlobMetaData{}, session.SetErrorClose(status.ErrCreateErrorLocal)
 			}
 
 			filePresence := utils.FilterEmptyString(createStatus)
@@ -206,21 +206,21 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 			}
 			return session.GetBlobMetaData(), nil
 		default:
-			return v1.BlobMetaData{}, errors.New("invalid mode")
+			return v1.BlobMetaData{}, status.ErrIOModeInvalid
 		}
 	}
 }
 
 func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, error) {
 	if !utils.IsValidBlobMetaData(src) {
-		return v1.BlobMetaData{}, errors.New("blob corrupted")
+		return v1.BlobMetaData{}, status.ErrBlobCorrupted
 	}
 
 	var session server.Session
 
 	session, err := r.sessions.Get(path)
 	if err != nil {
-		return src, errors.New("session not found")
+		return src, status.ErrSessionNotFound
 	} else {
 		session.Add(1)
 		defer session.Done()
@@ -347,7 +347,7 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 func (r *blobRepo) Read(buffer io.Writer, path string, chunkID int64, chunkOffset int64, size int64) (int64, error) {
 	session, err := r.sessions.Get(path)
 	if err != nil {
-		return 0, errors.New("session not found")
+		return 0, status.ErrSessionNotFound
 	}
 	session.Add(1)
 	defer session.Done()
@@ -367,7 +367,7 @@ func (r *blobRepo) Read(buffer io.Writer, path string, chunkID int64, chunkOffse
 
 	clientUUIDs, err := session.GetChunkDistribution(chunkID)
 	if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-		return 0, session.SetErrorClose(errors.New("current chunk is not present"))
+		return 0, session.SetErrorClose(status.ErrChunkCurrentNotPresent)
 	}
 
 	clients, err := r.DataServerManager().GetClients(clientUUIDs)
@@ -394,7 +394,7 @@ func (r *blobRepo) Read(buffer io.Writer, path string, chunkID int64, chunkOffse
 func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, data io.ReadCloser) ([]string, int64, error) {
 	session, err := r.sessions.Get(path)
 	if err != nil {
-		return nil, 0, errors.New("session not found")
+		return nil, 0, status.ErrSessionNotFound
 	}
 	session.Add(1)
 	defer session.Done()
@@ -414,7 +414,7 @@ func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int
 
 	clientUUIDs, err := session.GetChunkDistribution(chunkID)
 	if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-		return nil, 0, session.SetErrorClose(errors.New("current chunk is not present"))
+		return nil, 0, session.SetErrorClose(status.ErrChunkCurrentNotPresent)
 	}
 
 	clients, err := r.DataServerManager().GetClients(clientUUIDs)
@@ -449,10 +449,16 @@ func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int
 		return MD5Strings, numWritten[0], nil
 	} else {
 		if numFailed <= 1 {
-			_ = session.SetError(errors.New("not all servers have the same checksum"))
+			_ = session.SetError(status.ErrDataServerChecksumMismatch)
+			for idx, v := range MD5Strings {
+				if v != "" {
+					return MD5Strings, numWritten[idx], nil
+				}
+			}
 			return MD5Strings, numWritten[0], nil
+
 		} else {
-			return nil, 0, session.SetErrorClose(errors.New("not all servers have the same checksum"))
+			return nil, 0, session.SetErrorClose(status.ErrDataServerChecksumMismatch)
 		}
 	}
 
@@ -465,14 +471,14 @@ func (r *blobRepo) Rmdir(path string) error {
 	}
 
 	if utils.IsSameDirectory(server.GlobalServerDesc.Opt.Volume, directoryPath) {
-		return errors.New("cannot delete this directory")
+		return status.ErrDirectoryCannotDelete
 	}
 
 	_, err = os.Stat(directoryPath)
 	if err == nil {
 		err = os.RemoveAll(directoryPath)
 		if err != nil {
-			return errors.New("failed to remove directory")
+			return status.ErrDirectoryCannotRemoveLocal
 		} else {
 			clients := r.DataServerManager().GetAllClients()
 			wg := new(sync.WaitGroup)
@@ -488,12 +494,12 @@ func (r *blobRepo) Rmdir(path string) error {
 			}
 			wg.Wait()
 			if utils.HasError(errs) {
-				return errors.New("failed to remove directory from some data servers")
+				return status.ErrDirectoryCannotRemoveRemote
 			}
 
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	}
 	return err
 }
@@ -512,7 +518,7 @@ func (r *blobRepo) Rm(path string, recursive bool) error {
 		if isFile {
 			err = os.RemoveAll(filePath)
 			if err != nil {
-				return errors.New("failed to remove directory")
+				return status.ErrDirectoryCannotRemoveLocal
 			} else {
 				clients := r.DataServerManager().GetAllClients()
 				wg := new(sync.WaitGroup)
@@ -529,17 +535,17 @@ func (r *blobRepo) Rm(path string, recursive bool) error {
 				wg.Wait()
 
 				if utils.HasError(errs) {
-					return errors.New("failed to remove file from some data servers")
+					return status.ErrDataServerCannotRemoveSome
 				} else {
 					_ = r.SessionManager().Delete(path)
 					return nil
 				}
 			}
 		} else {
-			return errors.New("not a file")
+			return status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	} else {
 		return err
 	}
@@ -552,7 +558,7 @@ func (r *blobRepo) Mkdir(path string) error {
 	}
 	_, err = os.Stat(directoryPath)
 	if err == nil {
-		return errors.New("file or directory exists")
+		return status.ErrFileExists
 	} else if os.IsNotExist(err) {
 		err := os.Mkdir(directoryPath, 0775)
 		if err != nil {
@@ -572,38 +578,40 @@ func (r *blobRepo) Mkdir(path string) error {
 			}
 			wg.Wait()
 			if utils.HasError(errs) {
-				return errors.New("failed to create directory at some data servers")
+				return status.ErrDataServerCannotCreateSome
 			} else {
 				return nil
 			}
 		}
 	} else {
-		return errors.New("cannot create directory")
+		return status.ErrDirectoryCannotCreate
 	}
 }
 
-func (r *blobRepo) Ls(path string) ([]v1.BlobMetaData, error) {
+func (r *blobRepo) Ls(path string) (bool, []v1.BlobMetaData, error) {
 	filePath, err := utils.JoinSubPathSafe(server.GlobalServerDesc.Opt.Volume, path)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 	_, err = os.Stat(filePath)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 	isFile := utils.GetFileState(filePath)
 	if isFile {
+		s := server.NewSession(path, filePath, "", os.O_RDONLY)
+		_ = s.LoadBlobMetaData()
 		res := make([]v1.BlobMetaData, 1)
 		res[0] = v1.BlobMetaData{
 			BaseName: filepath.Base(filePath),
-			Size:     server.NewSession(path, filePath, "", os.O_RDONLY).GetBlobMetaData().Size,
+			Size:     s.GetBlobMetaData().Size,
 			Type:     v1.BlobFileTypeName,
 		}
-		return res, nil
+		return false, res, nil
 	} else {
 		lst, err := os.ReadDir(filePath)
 		if err != nil {
-			return nil, err
+			return true, nil, err
 		}
 		res := make([]v1.BlobMetaData, 0)
 		for _, val := range lst {
@@ -613,14 +621,16 @@ func (r *blobRepo) Ls(path string) ([]v1.BlobMetaData, error) {
 					Type:     v1.BlobDirTypeName,
 				})
 			} else {
+				s := server.NewSession(path, filepath.Join(filePath, val.Name()), "", os.O_RDONLY)
+				_ = s.LoadBlobMetaData()
 				res = append(res, v1.BlobMetaData{
 					BaseName: val.Name(),
-					Size:     server.NewSession(path, filePath, "", os.O_RDONLY).GetBlobMetaData().Size,
+					Size:     s.GetBlobMetaData().Size,
 					Type:     v1.BlobFileTypeName,
 				})
 			}
 		}
-		return res, nil
+		return true, res, nil
 	}
 }
 

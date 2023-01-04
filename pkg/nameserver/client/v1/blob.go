@@ -214,10 +214,10 @@ func (c *nameServerClient) BlobMkdir(path string) error {
 	}
 }
 
-func (c *nameServerClient) BlobLs(path string) ([]v1.LsFileInfo, error) {
+func (c *nameServerClient) BlobLs(path string) (bool, []v1.LsFileInfo, error) {
 	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.Path)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 
 	req, _ := http.NewRequest("GET", targetUrl, nil)
@@ -233,7 +233,7 @@ func (c *nameServerClient) BlobLs(path string) ([]v1.LsFileInfo, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -246,12 +246,12 @@ func (c *nameServerClient) BlobLs(path string) ([]v1.LsFileInfo, error) {
 	var result v1.LsResponse
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	} else {
 		if result.Code != http.StatusOK {
-			return nil, errors.New(result.Msg)
+			return false, nil, errors.New(result.Msg)
 		} else {
-			return result.List, nil
+			return result.IsDir, result.List, nil
 		}
 	}
 

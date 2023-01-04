@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"fmt"
+	"github.com/seehuhn/password"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -162,18 +162,18 @@ func (o *ClientAuthOpt) BindAuthentication(cmd *cobra.Command) error {
 	}
 
 	if accessKey == "" {
-		fmt.Printf("Input accessKey: ")
-		_, err := fmt.Scanf("%s", &accessKey)
+		input, err := password.Read("Input accessKey: ")
 		if err != nil && err.Error() != "unexpected newline" {
 			return err
 		}
+		accessKey = string(input)
 	}
 	if secretKey == "" {
-		fmt.Printf("Input secretKey: ")
-		_, err := fmt.Scanf("%s", &secretKey)
+		input, err := password.Read("Input secretKey: ")
 		if err != nil && err.Error() != "unexpected newline" {
 			return err
 		}
+		secretKey = string(input)
 	}
 	log.Debugf("accesskey: %s, secretKey: %s", accessKey, secretKey)
 

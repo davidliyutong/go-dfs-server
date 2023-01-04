@@ -1,7 +1,8 @@
 package server
 
 import (
-	"errors"
+	log "github.com/sirupsen/logrus"
+	"go-dfs-server/pkg/status"
 	"go-dfs-server/pkg/utils"
 	"sync"
 	"time"
@@ -43,7 +44,7 @@ func (s *sessionManager) Reset() error {
 func (s *sessionManager) New(path string, filePath string, mode int) (Session, error) {
 	_, ok := s.sessions.Load(path)
 	if ok {
-		return nil, errors.New("file already opened")
+		return nil, status.ErrFileOpened
 	} else {
 		session := NewSession(path, filePath, utils.MustGenerateUUID(), mode)
 		s.sessions.Store(path, session)
@@ -64,11 +65,12 @@ func (s *sessionManager) Delete(path string) error {
 			}
 			return nil
 		} else {
+			log.Debugln("deleting session:", path)
 			s.sessions.Delete(path)
 			return nil
 		}
 	} else {
-		return errors.New("session not found")
+		return status.ErrSessionNotFound
 	}
 }
 
@@ -86,7 +88,7 @@ func (s *sessionManager) Get(path string) (Session, error) {
 	if ok {
 		return session.(Session), nil
 	} else {
-		return nil, errors.New("session not found")
+		return nil, status.ErrSessionNotFound
 	}
 }
 
@@ -100,7 +102,7 @@ func (s *sessionManager) Close(path string) error {
 	if ok {
 		return session.(Session).Close()
 	} else {
-		return errors.New("session not found")
+		return status.ErrSessionNotFound
 	}
 }
 

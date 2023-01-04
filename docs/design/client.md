@@ -24,14 +24,15 @@ Client support multiple genres of actions:
 | Name    | Argument (CLI)  | Options         | Functional                                             |
 |---------|-----------------|-----------------|--------------------------------------------------------|
 | `info`  | -               |                 |                                                        |
-| `ls`    | \[path\]        |                 |                                                        |
 | `cat`   | \[path\]        |                 |                                                        |
-| `mkdir` | \[path\]        |                 |                                                        |
-| `touch` | \[path\]        |                 |                                                        |
-| `rm`    | \[path\]        | `-r`            |                                                        |
-| `cp`    | \[src\] \[dst\] | `-r`            |                                                        |
-| `mv`    | \[src\] \[dst\] |                 |                                                        |
 | `pipe`  | \[path\]        | `--mode=in/out` | open a file and write file with data from stdin        |
+| `ls`    | \[path\]        |                 | list a remote directory of file                        |
+| `mkdir` | \[path\]        |                 | create a remote directory                              |
+| `rm`    | \[path\]        | `-r`            | delete a remote file                                   |
+| `touch` | \[path\]        |                 | create a remote file                                   |
+| `get`   | \[src\] \[dst\] | `-r`            | download file from remote                              |
+| `put`   | \[src\] \[dst\] | `-r`            | upload file to remote                                  |
+| `mv`    | \[src\] \[dst\] |                 | move remote file                                       |
 | `shell` |                 | `--mode=0x0`    | open a file with an interactive prompt **interactive** |
 
 ## Interactive Prompt

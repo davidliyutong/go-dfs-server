@@ -12,7 +12,9 @@ import (
 
 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NzI4NTk3ODAsIm9yaWdfaWF0IjoxNjcyNzczMzgwLCJ1aWQiOiJiZTdiYmNlODdiNzVhZGQ0In0.TsGHM4KDLEXJv75j46pVYPfBVHkYh_jzcNK_8obPCqo"
 
-func testPint() {
+//const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NzI5MTIyNTMsIm9yaWdfaWF0IjoxNjcyODI1ODUzLCJ1aWQiOiI4MmE0NWYyYjNhNDVhMjE4In0.j5S8YYANQSUjxwqWt7LN2EalX3WdU6Yu0etWqAg87lg"
+
+func testPing() {
 	cli := v1.NewNameServerClient(token, "192.168.105.131", 27903, false)
 	fmt.Println(cli.Ping())
 }
@@ -91,7 +93,9 @@ func testClientWriteFile() {
 		buf := make([]byte, v12.DefaultBlobChunkSize)
 		read, err := input.Read(buf)
 		if err != nil {
-			log.Errorln(err)
+			if err.Error() != "EOF" {
+				log.Errorln(err)
+			}
 			break
 		}
 		written, err := handle.Write(buf[:read])
@@ -163,11 +167,11 @@ func testClientInspectFile() {
 func main() {
 	log.SetLevel(log.DebugLevel)
 	//testClientOpen()
-	testClientRm()
+	//testClientRm()
 	testClientWriteString()
 	testClientReadString()
 	testClientWriteFile()
 	testClientReadFile()
-	testClientInspectFile()
+	//testClientInspectFile()
 
 }

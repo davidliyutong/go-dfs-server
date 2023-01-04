@@ -23,6 +23,7 @@ func Login(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		opt.MustBindURL(args[0])
+		log.Infoln("login to ", args[0])
 		authOpt.MustBindAuthentication(cmd)
 		dfsClient = v1.NewNameServerClientFromOpt(opt)
 		dfsClient.MustAuthLogin(authOpt.AccessKey, authOpt.SecretKey)
@@ -31,6 +32,7 @@ func Login(cmd *cobra.Command, args []string) {
 		log.Debugln("%s", opt)
 		if len(args) > 0 {
 			opt.MustBindURL(args[0])
+			log.Infoln("login to ", args[0])
 			authOpt.MustBindAuthentication(cmd)
 		}
 		dfsClient = v1.NewNameServerClientFromOpt(opt)

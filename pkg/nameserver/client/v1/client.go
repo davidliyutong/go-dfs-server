@@ -2,13 +2,13 @@ package v1
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"go-dfs-server/pkg/config"
 	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/controller"
 	v13 "go-dfs-server/pkg/nameserver/apiserver/sys/v1/controller"
 	"go-dfs-server/pkg/nameserver/server"
 	ping "go-dfs-server/pkg/ping/v1"
+	"go-dfs-server/pkg/status"
 	"io"
 	"net/http"
 	"strings"
@@ -33,7 +33,7 @@ type NameServerClient interface {
 	Open(path string, mode int) (Handle, error)
 
 	BlobMkdir(path string) error
-	BlobLs(path string) ([]v1.LsFileInfo, error)
+	BlobLs(path string) (bool, []v1.LsFileInfo, error)
 	BlobRm(path string, recursive bool) error
 
 	SysInfo() (v13.InfoResponse, error)
@@ -117,7 +117,7 @@ func (c *nameServerClient) Ping() error {
 		if result.Message == "pong" {
 			return nil
 		} else {
-			return errors.New("response not pong")
+			return status.ErrClientNotPong
 		}
 	}
 }

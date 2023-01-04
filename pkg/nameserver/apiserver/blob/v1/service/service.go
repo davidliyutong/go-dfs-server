@@ -9,7 +9,7 @@ import (
 
 type BlobService interface {
 	Sync(sessionID string, blob model.BlobMetaData) (model.BlobMetaData, error)
-	Ls(path string) ([]model.BlobMetaData, error)
+	Ls(path string) (bool, []model.BlobMetaData, error)
 	Mkdir(path string) error
 	Open(path string, mode int) (model.BlobMetaData, error)
 	Read(path string, chunkID int64, chunkOffset int64, size int64, c *gin.Context) (int64, error)

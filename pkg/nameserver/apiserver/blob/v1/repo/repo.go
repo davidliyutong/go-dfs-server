@@ -15,7 +15,7 @@ type BlobRepo interface {
 	Rm(path string, recursive bool) error
 
 	Mkdir(path string) error
-	Ls(path string) ([]model.BlobMetaData, error)
+	Ls(path string) (bool, []model.BlobMetaData, error)
 
 	SessionManager() server.SessionManager
 	DataServerManager() server.DataServerManager

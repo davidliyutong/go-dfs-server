@@ -41,7 +41,7 @@ func clean(m server.SessionManager) {
 			if err != nil {
 				log.Warningln(err)
 			}
-			log.Debugln("trigger clean, active sessions: ", m.ListSessions())
+			//log.Debugln("trigger clean, active sessions: ", m.ListSessions())
 
 			time.Sleep(time.Second) // TODO: make this configurable
 		}

@@ -23,7 +23,7 @@ func runSessionCleaner() {
 			if err != nil {
 				log.Warningln(err)
 			}
-			log.Debugln("trigger clean, active sessions: ", server.BlobSessionManager.ListSessions())
+			//log.Debugln("trigger clean, active sessions: ", server.BlobSessionManager.ListSessions())
 
 			time.Sleep(time.Second * 3) // TODO: make this configurable
 		}

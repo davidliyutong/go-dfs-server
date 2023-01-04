@@ -58,7 +58,7 @@ for i in $(seq 0 "$(echo "$N_SERVERS - 1" | bc)"); do
            --net="$NETWORK" \
            -e "DFSAPP_DEBUG=1" \
            davidliyutong/go-dfs-dataserver:"$TAG"
-    DFSAPP_DATA_SERVERS="$DFSAPP_DATA_SERVERS,DataServer-$i:$(echo "27904 + $i" | bc)"
+    DFSAPP_DATA_SERVERS="$DFSAPP_DATA_SERVERS,DataServer-$i:$(echo "27904" | bc)"
 done
 
 if [ ! -d "$DATA_ROOT"/name ]; then

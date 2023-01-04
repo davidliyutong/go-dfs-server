@@ -2,7 +2,7 @@ package v1
 
 import (
 	"encoding/json"
-	"errors"
+	"go-dfs-server/pkg/status"
 	"io"
 	"os"
 )
@@ -28,10 +28,10 @@ func (o *BlobMetaData) GetNumOfChunks() int64 {
 
 func (o *BlobMetaData) GetChunkDistribution(chunkID int64) ([]string, error) {
 	if chunkID < 0 || chunkID >= o.GetNumOfChunks() {
-		return nil, errors.New("wrong id")
+		return nil, status.ErrChunkIDWrong
 	}
 	if chunkID >= int64(len(o.ChunkDistribution)) {
-		return nil, errors.New("blob corrupted")
+		return nil, status.ErrBlobCorrupted
 	}
 	// only get client with non-empty checksum
 	result := make([]string, 0)
@@ -45,7 +45,7 @@ func (o *BlobMetaData) GetChunkDistribution(chunkID int64) ([]string, error) {
 
 func (o *BlobMetaData) GetFilePresence() ([]string, error) {
 	if o.Presence == nil {
-		return nil, errors.New("blob corrupted")
+		return nil, status.ErrBlobCorrupted
 	}
 	return o.Presence, nil
 }
@@ -92,7 +92,7 @@ func (o *BlobMetaData) Dump(path string) error {
 func (o *BlobMetaData) Load(path string) error {
 	jsonFile, err := os.Open(path)
 	if err != nil {
-		return errors.New("cannot open metadata")
+		return status.ErrMetaDataCannotLoad
 	}
 	defer func(jsonFile *os.File) {
 		err := jsonFile.Close()

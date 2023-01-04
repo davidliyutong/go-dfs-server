@@ -3,10 +3,10 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	log "github.com/sirupsen/logrus"
 	"go-dfs-server/pkg/auth"
 	"go-dfs-server/pkg/nameserver/server"
+	"go-dfs-server/pkg/status"
 	"io"
 	"net/http"
 	"os"
@@ -49,7 +49,7 @@ func (c *nameServerClient) AuthLogin(accessKey string, secretKey string) (string
 		c.opt.Token = result.Token
 		c.opt.Expire = result.Expire
 	} else {
-		return "", errors.New("login failed, access denied, try logout then login")
+		return "", status.ErrClientLoginFailed
 	}
 
 	info, err := c.SysInfo()
@@ -94,7 +94,7 @@ func (c *nameServerClient) AuthRefresh() (string, error) {
 		c.opt.Token = result.Token
 		c.opt.Expire = result.Expire
 	} else {
-		return "", errors.New("login failed, access denied, try logout then login")
+		return "", status.ErrClientLoginFailed
 	}
 
 	return c.opt.Token, nil

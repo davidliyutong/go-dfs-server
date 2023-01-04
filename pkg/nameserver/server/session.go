@@ -1,9 +1,9 @@
 package server
 
 import (
-	"errors"
 	log "github.com/sirupsen/logrus"
 	"go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
+	"go-dfs-server/pkg/status"
 	"path/filepath"
 	"sync"
 	"time"
@@ -93,7 +93,7 @@ func (s *session) SyncMutex() *sync.RWMutex {
 
 func (s *session) LockChunk(chunkID int64) error {
 	if chunkID < 0 || chunkID >= int64(len(s.chunkMutex)) {
-		return errors.New("chunkID out of range")
+		return status.ErrChunkIDOutOfRange
 	}
 	s.chunkMutex[chunkID].Lock()
 	return nil
@@ -101,7 +101,7 @@ func (s *session) LockChunk(chunkID int64) error {
 
 func (s *session) RLockChunk(chunkID int64) error {
 	if chunkID < 0 || chunkID >= int64(len(s.chunkMutex)) {
-		return errors.New("chunkID out of range")
+		return status.ErrChunkIDOutOfRange
 	}
 	s.chunkMutex[chunkID].RLock()
 	return nil
@@ -109,7 +109,7 @@ func (s *session) RLockChunk(chunkID int64) error {
 
 func (s *session) UnlockChunk(chunkID int64) error {
 	if chunkID < 0 || chunkID >= int64(len(s.chunkMutex)) {
-		return errors.New("chunkID out of range")
+		return status.ErrChunkIDOutOfRange
 	}
 	s.chunkMutex[chunkID].Unlock()
 	return nil
@@ -117,7 +117,7 @@ func (s *session) UnlockChunk(chunkID int64) error {
 
 func (s *session) RUnlockChunk(chunkID int64) error {
 	if chunkID < 0 || chunkID >= int64(len(s.chunkMutex)) {
-		return errors.New("chunkID out of range")
+		return status.ErrChunkIDOutOfRange
 	}
 	s.chunkMutex[chunkID].RUnlock()
 	return nil
@@ -136,7 +136,7 @@ func (s *session) Heal() {
 
 func (s *session) Open() error {
 	if s.deleting {
-		return errors.New("session is deleting")
+		return status.ErrSessionDeleting
 	}
 	s.sessionMutex.Lock()
 	defer s.sessionMutex.Unlock()
@@ -167,7 +167,7 @@ func (s *session) Close() error {
 
 func (s *session) SetError(err error) error {
 	if s.deleting {
-		return errors.New("session is deleting")
+		return status.ErrSessionDeleting
 	}
 	if err != nil {
 		log.Warningf("session %v encounter error: %v", s.Path(), err)
@@ -182,7 +182,7 @@ func (s *session) SetError(err error) error {
 
 func (s *session) SetErrorClose(err error) error {
 	if s.deleting {
-		return errors.New("session is deleting")
+		return status.ErrSessionDeleting
 	}
 	if err != nil {
 		log.Errorf("session %v closed due to error: %v", s.Path(), err)
@@ -244,7 +244,7 @@ func (s *session) SetFilePresence(p []string) error {
 	s.metaMutex.Lock()
 	defer s.metaMutex.Unlock()
 	if p == nil {
-		return errors.New("presence is nil")
+		return status.ErrFilePresenceNil
 	}
 	s.Blob.Presence = p
 	return nil

@@ -7,6 +7,7 @@ import (
 	v1 "go-dfs-server/pkg/dataserver/apiserver/blob/v1/model"
 	"go-dfs-server/pkg/dataserver/apiserver/blob/v1/repo"
 	"go-dfs-server/pkg/dataserver/server"
+	"go-dfs-server/pkg/status"
 	"go-dfs-server/pkg/utils"
 	"io"
 	"mime/multipart"
@@ -57,7 +58,7 @@ func (b *blobService) CreateChunk(path string, id int64) error {
 			return err
 		}
 	} else {
-		return errors.New("not a file")
+		return status.ErrFileNotFile
 	}
 }
 
@@ -65,7 +66,7 @@ func (b *blobService) CreateDirectory(path string) error {
 	directoryPath := filepath.Join(server.GlobalServerDesc.Opt.Volume, path)
 	_, err := os.Stat(directoryPath)
 	if err == nil {
-		return errors.New("file or directory exists")
+		return status.ErrFileExists
 	} else if os.IsNotExist(err) {
 		err := os.Mkdir(directoryPath, 0775)
 		if err != nil {
@@ -84,7 +85,7 @@ func (b *blobService) CreateFile(path string) error {
 	}
 	_, err = os.Stat(filePath)
 	if err == nil {
-		return errors.New("file or directory exists")
+		return status.ErrFileExists
 	} else if os.IsNotExist(err) {
 		err := os.Mkdir(filePath, 0775)
 		if err != nil {
@@ -117,7 +118,7 @@ func (b *blobService) DeleteChunk(path string, id int64) error {
 		if err == nil {
 			err = os.Remove(chunkPath)
 			if err != nil {
-				return errors.New("failed to remove chunk")
+				return status.ErrChunkCannotRemove
 			} else {
 				return nil
 			}
@@ -127,7 +128,7 @@ func (b *blobService) DeleteChunk(path string, id int64) error {
 			return err
 		}
 	} else {
-		return errors.New("not a file")
+		return status.ErrFileNotFile
 	}
 
 }
@@ -156,7 +157,7 @@ func (b *blobService) DeleteDirectory(path string) error {
 			return err
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	}
 	return err
 
@@ -173,15 +174,15 @@ func (b *blobService) DeleteFile(path string) error {
 		if isFile {
 			err = os.RemoveAll(filePath)
 			if err != nil {
-				return errors.New("failed to remove directory")
+				return status.ErrDirectoryCannotRemoveLocal
 			} else {
 				return nil
 			}
 		} else {
-			return errors.New("not a file")
+			return status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	} else {
 		return err
 	}
@@ -199,11 +200,11 @@ func (b *blobService) getChunkMD5(path string, id int64) (string, error) {
 			chunkPath := utils.GetChunkPath(filePath, id)
 			return utils.GetFileMD5(chunkPath)
 		} else {
-			return "", errors.New("not a file")
+			return "", status.ErrFileNotFile
 		}
 
 	} else if os.IsNotExist(err) {
-		return "", errors.New("file or directory does not exist")
+		return "", status.ErrFileOrDirectoryNotExist
 	} else {
 		return "", err
 	}
@@ -220,7 +221,7 @@ func (b *blobService) LockFile(path string, id string) error {
 		if ok {
 			_, ok := locks[id]
 			if ok {
-				return errors.New("file already locked by this session")
+				return status.ErrFileAlreadyLocked
 			} else {
 				locks[id] = true
 				return nil
@@ -232,7 +233,7 @@ func (b *blobService) LockFile(path string, id string) error {
 			return nil
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	}
 	return err
 }
@@ -277,10 +278,10 @@ func (b *blobService) ReadChunk(path string, id int64, offset int64, size int64,
 				return err
 			}
 		} else {
-			return errors.New("destination not a file")
+			return status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file dose not exists")
+		return status.ErrFileNotExist
 	} else {
 		return err
 	}
@@ -295,7 +296,7 @@ func (b *blobService) ReadChunkMeta(path string, id int64) (int64, string, error
 		MD5String, ok1 := meta.ChunkChecksums[id]
 		version, ok2 := meta.Versions[id]
 		if !ok1 || !ok2 {
-			return -1, "", errors.New("no meta data found for this chunk id")
+			return -1, "", status.ErrMetaNotFound
 		} else {
 			return version, MD5String, nil
 		}
@@ -322,7 +323,7 @@ func (b *blobService) ReadFileLock(path string) ([]string, error) {
 			return nil, nil
 		}
 	} else if os.IsNotExist(err) {
-		return nil, errors.New("file or directory does not exist")
+		return nil, status.ErrFileOrDirectoryNotExist
 	} else {
 		return nil, err
 	}
@@ -342,15 +343,15 @@ func (b *blobService) ReadFileMeta(path string) (v1.BlobMetaData, error) {
 			meta.Path = utils.GetMetaPath(filePath)
 			err = meta.Load()
 			if err != nil {
-				return meta, errors.New("cannot load metadata")
+				return meta, status.ErrMetaDataCannotLoad
 			} else {
 				return meta, nil
 			}
 		} else {
-			return meta, errors.New("not a file")
+			return meta, status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return meta, errors.New("file or directory does not exist")
+		return meta, status.ErrFileOrDirectoryNotExist
 	} else {
 		return meta, err
 	}
@@ -368,10 +369,10 @@ func (b *blobService) UnlockFile(path string) error {
 			delete(server.GlobalFileLocks, path)
 			return nil
 		} else {
-			return errors.New("file not locked")
+			return status.ErrFileNotLocked
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	} else {
 		return err
 	}
@@ -390,7 +391,7 @@ func (b *blobService) updateMeta(path string, id int64, version int64, data inte
 			meta := v1.NewBlobMetaData(metaPath)
 			err = meta.Load()
 			if err != nil {
-				return errors.New("cannot load metadata")
+				return status.ErrMetaDataCannotLoad
 			} else {
 				meta.Versions[id] = version
 				meta.ChunkChecksums[id] = fmt.Sprintf("%v", data)
@@ -398,15 +399,15 @@ func (b *blobService) updateMeta(path string, id int64, version int64, data inte
 
 			err = meta.Dump()
 			if err != nil {
-				return errors.New("cannot save metadata")
+				return status.ErrMetaDataCannotDump
 			} else {
 				return nil
 			}
 		} else {
-			return errors.New("not a file")
+			return status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return errors.New("file or directory does not exist")
+		return status.ErrFileOrDirectoryNotExist
 	}
 	return err
 
@@ -426,7 +427,7 @@ func (b *blobService) WriteChunk(path string, id int64, offset int64, size int64
 			err = meta.Load()
 			if oldVersion, ok := meta.Versions[id]; ok {
 				if oldVersion >= version {
-					return "", 0, errors.New("version conflict")
+					return "", 0, status.ErrMetaVersionConflict
 				}
 			}
 
@@ -469,10 +470,10 @@ func (b *blobService) WriteChunk(path string, id int64, offset int64, size int64
 			return MD5String, written, b.updateMeta(path, id, version, MD5String)
 
 		} else {
-			return "", 0, errors.New("destination not a file")
+			return "", 0, status.ErrFileNotFile
 		}
 	} else if os.IsNotExist(err) {
-		return "", 0, errors.New("file dose not exists")
+		return "", 0, status.ErrFileNotExist
 	} else {
 		return "", 0, err
 	}

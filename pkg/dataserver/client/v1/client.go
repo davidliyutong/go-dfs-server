@@ -2,10 +2,10 @@ package v1
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"go-dfs-server/pkg/dataserver/server"
 	ping "go-dfs-server/pkg/ping/v1"
+	"go-dfs-server/pkg/status"
 	"io"
 	"net/http"
 	"strings"
@@ -115,7 +115,7 @@ func (c *dataServerClient) Ping() error {
 		if result.Message == "pong" {
 			return nil
 		} else {
-			return errors.New("response not pong")
+			return status.ErrClientNotPong
 		}
 	}
 }

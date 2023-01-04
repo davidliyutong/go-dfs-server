@@ -52,6 +52,14 @@ If --yes / -y flag is present, the configuration will be overwrite without confi
 	Run: config.InitNameServerCfg,
 }
 
+var credentialCmd = &cobra.Command{
+	Use:   "credential",
+	Short: "credential outputs the credential of the nameserver",
+	Long: `credential outputs the credential of the nameserver, this is very useful when using docker
+`,
+	Run: config.OutputServerCredential,
+}
+
 func getRootCmd() *cobra.Command {
 
 	serveCmd.Flags().String("config", "", "default configuration path")
@@ -69,6 +77,8 @@ func getRootCmd() *cobra.Command {
 	initCmd.Flags().BoolP("yes", "y", false, "overwrite")
 	initCmd.Flags().StringP("output", "o", config.NameServerDefaultConfig, "specify output directory")
 	rootCmd.AddCommand(initCmd)
+
+	rootCmd.AddCommand(credentialCmd)
 
 	return rootCmd
 }

@@ -7,6 +7,7 @@ import (
 	v1 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/controller"
 	v12 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
 	"go-dfs-server/pkg/nameserver/server"
+	"go-dfs-server/pkg/status"
 	"go-dfs-server/pkg/utils"
 	"io"
 	"net/http"
@@ -206,7 +207,7 @@ func (h *handle) Read(buf []byte) (int, error) {
 			return numBytesRead, io.EOF
 		}
 		if n != numBytesToRead {
-			return numBytesRead, errors.New("read less bytes than expected")
+			return numBytesRead, status.ErrIOReadLess
 		}
 		numBytesRead += n
 		numBytesLeft -= n
@@ -224,7 +225,7 @@ func (h *handle) Write(buf []byte) (int, error) {
 	defer h.rwMutex.Unlock()
 
 	if h.mode&os.O_RDONLY != 0 {
-		return 0, errors.New("file is opened in read-only mode")
+		return 0, status.ErrIOReadOnly
 	}
 
 	currOffset := h.offset
@@ -271,7 +272,7 @@ func (h *handle) Write(buf []byte) (int, error) {
 		}
 
 		if n != numBytesToWrite {
-			return numBytesWritten, errors.New("write less bytes than expected")
+			return numBytesWritten, status.ErrIOWriteLess
 		}
 		h.blob.ChunkChecksums[currChunkID] = checksum
 		numBytesWritten += n
@@ -298,7 +299,7 @@ func (h *handle) Truncate(size int64) error {
 		return err
 	}
 	if n != 0 {
-		return errors.New("remote truncate failed")
+		return status.ErrMetaTruncateFailedRemote
 	}
 	h.blob.ChunkChecksums[lastChunkID] = checksum
 	return nil
@@ -318,7 +319,7 @@ func (h *handle) Seek(offset int64, whence int) (int64, error) {
 	h.rwMutex.Lock()
 	defer h.rwMutex.Unlock()
 	if newOffset < 0 || newOffset > h.blob.Size {
-		return 0, errors.New("invalid offset")
+		return 0, status.ErrIOOffsetInvalid
 	} else {
 		h.offset = newOffset
 		return newOffset, nil

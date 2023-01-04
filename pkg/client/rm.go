@@ -9,7 +9,7 @@ import (
 
 func Rm(cmd *cobra.Command, args []string) {
 	opt := config.NewClientOpt()
-	_, err := opt.Parse(cmd)
+	vipCfg, err := opt.Parse(cmd)
 	if err != nil {
 		log.Println("cannot find credential, run login first")
 	} else {
@@ -17,6 +17,8 @@ func Rm(cmd *cobra.Command, args []string) {
 		_, _ = cmd.Flags().GetBool("force")
 
 		cli := v1.NewNameServerClient(opt.Token, opt.Hostname, opt.Port, opt.UseTLS)
+		defer refreshToken(cli, vipCfg)
+
 		err := cli.BlobRm(args[0], recursive)
 		if err != nil {
 			log.Errorln(err)

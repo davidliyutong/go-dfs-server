@@ -1,9 +1,9 @@
 package server
 
 import (
-	"errors"
 	"go-dfs-server/pkg/config"
 	v1 "go-dfs-server/pkg/dataserver/client/v1"
+	"go-dfs-server/pkg/status"
 )
 
 type dataServerManager struct {
@@ -19,7 +19,7 @@ func (d *dataServerManager) GetAllClients() []interface{} {
 func (d *dataServerManager) GetClient(uuid string) (interface{}, error) {
 	client, ok := d.namedClients[uuid]
 	if !ok {
-		return nil, errors.New("client not found")
+		return nil, status.ErrClientNotFound
 	} else {
 		return client, nil
 	}
@@ -37,7 +37,7 @@ func (d *dataServerManager) GetClients(uuids []string) ([]interface{}, error) {
 		}
 	}
 	if errOccurred {
-		return clients, errors.New("failed to find some clients")
+		return clients, status.ErrClientNotFoundSome
 	} else {
 		return clients, nil
 	}
@@ -60,7 +60,7 @@ func (d *dataServerManager) AlivenessProbe() (map[string]bool, error) {
 	if flag {
 		return stat, nil
 	} else {
-		return stat, errors.New("not all data servers are alive")
+		return stat, status.ErrDataServerOfflineSome
 	}
 }
 
@@ -90,7 +90,7 @@ func (d *dataServerManager) UUIDProbe() (map[string]bool, error) {
 	if flag {
 		return stat, nil
 	} else {
-		return stat, errors.New("not all data servers uuid match record")
+		return stat, status.ErrDataServerUUIDMismatch
 	}
 }
 
@@ -105,9 +105,9 @@ func (d *dataServerManager) Register() error {
 			return err
 		}
 		if olderUUID == "" {
-			return errors.New("some dataserver has been rebooted")
+			return status.ErrDataServerReboot
 		} else if olderUUID != GlobalServerDesc.UUID {
-			return errors.New("nameserver has been rebooted")
+			return status.ErrNameServerReboot
 		}
 	}
 	return nil

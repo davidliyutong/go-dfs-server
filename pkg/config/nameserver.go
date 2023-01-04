@@ -134,6 +134,18 @@ func InitNameServerCfg(cmd *cobra.Command, args []string) {
 	}
 }
 
+func OutputServerCredential(cmd *cobra.Command, args []string) {
+	/** 创建NameServerOption **/
+	desc := NewNameServerDesc()
+	if err := desc.Parse(cmd); err != nil {
+		log.Fatalln("failed to parse configuration", err)
+		os.Exit(1)
+	} else {
+		fmt.Printf("export DFSAPP_ACCESSKEY=%v;DFSAPP_SECRETKEY=%v;\n", desc.Opt.Auth.AccessKey, desc.Opt.Auth.SecretKey)
+		return
+	}
+}
+
 func (o *NameServerDesc) Parse(cmd *cobra.Command) error {
 	vipCfg := viper.New()
 	vipCfg.SetDefault("network.port", NameServerDefaultPort)
@@ -181,7 +193,7 @@ func (o *NameServerDesc) Parse(cmd *cobra.Command) error {
 
 	// If a config file is found, read it in.
 	if err := vipCfg.ReadInConfig(); err == nil {
-		log.Infoln("using config file:", vipCfg.ConfigFileUsed())
+		log.Debugln("using config file:", vipCfg.ConfigFileUsed())
 	} else {
 		log.Warnln(err)
 		return nil

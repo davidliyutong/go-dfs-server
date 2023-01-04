@@ -10,11 +10,12 @@ import (
 
 func Touch(cmd *cobra.Command, args []string) {
 	opt := config.NewClientOpt()
-	_, err := opt.Parse(cmd)
+	vipCfg, err := opt.Parse(cmd)
 	if err != nil {
 		log.Println("cannot find credential, run login first")
 	} else {
 		cli := v1.NewNameServerClient(opt.Token, opt.Hostname, opt.Port, opt.UseTLS)
+		defer refreshToken(cli, vipCfg)
 		_, err := cli.Open(args[0], os.O_RDWR)
 		if err != nil {
 			log.Errorln(err)

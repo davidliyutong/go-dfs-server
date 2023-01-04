@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 )
@@ -24,7 +23,7 @@ func NewBlobMetaData(path string) BlobMetaData {
 func (o *BlobMetaData) Load() error {
 	jsonFile, err := os.Open(o.Path)
 	if err != nil {
-		return errors.New("cannot open metadata")
+		return err
 	}
 	defer func(jsonFile *os.File) {
 		err := jsonFile.Close()

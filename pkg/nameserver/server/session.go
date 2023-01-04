@@ -10,10 +10,11 @@ import (
 )
 
 type Session interface {
-	Open() error
 	IsOpened() bool
+	Open() error
 	Close() error
 	SetErrorClose(err error) error
+	SetError(err error) error
 
 	GetTime() time.Time
 	ID() *string
@@ -22,9 +23,12 @@ type Session interface {
 	FilePath() *string
 	SyncMutex() *sync.RWMutex
 
-	ExtendTo(chunkID int64)
-	TruncateTo(chunkID int64)
+	ExtendToID(chunkID int64)
+	TruncateToID(chunkID int64)
 	GetMetaFilePath() string
+	GetFilePresence() ([]string, error)
+	SetFilePresence([]string) error
+
 	GetChunkDistribution(chunkID int64) ([]string, error)
 
 	LockChunk(chunkID int64) error
@@ -36,7 +40,13 @@ type Session interface {
 	SetBlobMetaData(blob v1.BlobMetaData)
 	DumpBlobMetaData() error
 	LoadBlobMetaData() error
+
+	IsDeleting() bool
 	Delete()
+
+	IsHealing() bool
+	Heal()
+
 	Wait()
 	Add(n int)
 	Done()
@@ -48,7 +58,8 @@ type session struct {
 	id       string
 	time     time.Time
 	opened   bool
-	deleted  bool
+	deleting bool
+	healing  bool
 	error    []error
 
 	Blob v1.BlobMetaData
@@ -115,12 +126,17 @@ func (s *session) RUnlockChunk(chunkID int64) error {
 func (s *session) Delete() {
 	s.sessionMutex.Lock()
 	defer s.sessionMutex.Unlock()
-	s.deleted = true
+	s.deleting = true
+}
+func (s *session) Heal() {
+	s.sessionMutex.Lock()
+	defer s.sessionMutex.Unlock()
+	s.healing = true
 }
 
 func (s *session) Open() error {
-	if s.deleted {
-		return errors.New("session is deleted")
+	if s.deleting {
+		return errors.New("session is deleting")
 	}
 	s.sessionMutex.Lock()
 	defer s.sessionMutex.Unlock()
@@ -133,6 +149,14 @@ func (s *session) IsOpened() bool {
 	return s.opened
 }
 
+func (s *session) IsDeleting() bool {
+	return s.deleting
+}
+
+func (s *session) IsHealing() bool {
+	return s.healing
+}
+
 func (s *session) Close() error {
 	s.sessionMutex.Lock()
 	defer s.sessionMutex.Unlock()
@@ -141,9 +165,24 @@ func (s *session) Close() error {
 	return nil
 }
 
+func (s *session) SetError(err error) error {
+	if s.deleting {
+		return errors.New("session is deleting")
+	}
+	if err != nil {
+		log.Warningf("session %v encounter error: %v", s.Path(), err)
+	} else {
+		log.Debugf("session %v closed", s.Path())
+	}
+	s.errorMutex.Lock()
+	defer s.errorMutex.Unlock()
+	s.error = append(s.error, err)
+	return err
+}
+
 func (s *session) SetErrorClose(err error) error {
-	if s.deleted {
-		return errors.New("session is deleted")
+	if s.deleting {
+		return errors.New("session is deleting")
 	}
 	if err != nil {
 		log.Errorf("session %v closed due to error: %v", s.Path(), err)
@@ -155,7 +194,7 @@ func (s *session) SetErrorClose(err error) error {
 	s.error = append(s.error, err)
 	s.sessionMutex.Lock()
 	defer s.sessionMutex.Unlock()
-	s.deleted = true // mark as deleted to prevent further access
+	s.deleting = true // mark as deleting to prevent further access
 	return err
 }
 
@@ -195,7 +234,23 @@ func (s *session) GetChunkDistribution(chunkID int64) ([]string, error) {
 	return s.Blob.GetChunkDistribution(chunkID)
 }
 
-func (s *session) ExtendTo(chunkID int64) {
+func (s *session) GetFilePresence() ([]string, error) {
+	s.metaMutex.RLock()
+	defer s.metaMutex.RUnlock()
+	return s.Blob.GetFilePresence()
+}
+
+func (s *session) SetFilePresence(p []string) error {
+	s.metaMutex.Lock()
+	defer s.metaMutex.Unlock()
+	if p == nil {
+		return errors.New("presence is nil")
+	}
+	s.Blob.Presence = p
+	return nil
+}
+
+func (s *session) ExtendToID(chunkID int64) {
 	s.metaMutex.Lock()
 	defer s.metaMutex.Unlock()
 	s.Blob.ExtendTo(chunkID)
@@ -204,7 +259,7 @@ func (s *session) ExtendTo(chunkID int64) {
 	}
 }
 
-func (s *session) TruncateTo(chunkID int64) {
+func (s *session) TruncateToID(chunkID int64) {
 	s.metaMutex.Lock()
 	defer s.metaMutex.Unlock()
 	s.Blob.TruncateTo(chunkID)
@@ -242,7 +297,8 @@ func NewSession(path string, filePath string, id string, mode int) Session {
 		id:       id,
 		time:     time.Now(),
 		opened:   false,
-		deleted:  false,
+		deleting: false,
+		healing:  false,
 		error:    make([]error, 0),
 
 		Blob: v1.BlobMetaData{},

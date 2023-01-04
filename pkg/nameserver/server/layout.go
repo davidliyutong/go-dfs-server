@@ -7,7 +7,6 @@ import (
 var GlobalServerDesc *config.NameServerDesc
 var BlobDataServerManger DataServerManager
 var BlobSessionManager SessionManager
-var BlobLockManager LockManager
 
 const NameServerAPIVersion = "v1"
 const NameServerNumOfReplicas = 3

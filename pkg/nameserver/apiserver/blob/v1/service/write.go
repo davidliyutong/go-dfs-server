@@ -6,19 +6,19 @@ import (
 	"mime/multipart"
 )
 
-func (b blobService) Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, file *multipart.FileHeader) (string, int64, error) {
+func (b blobService) Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, file *multipart.FileHeader) ([]string, int64, error) {
 
 	if chunkOffset < 0 || chunkOffset >= v1.DefaultBlobChunkSize {
-		return "", 0, errors.New("invalid chunk offset")
+		return nil, 0, errors.New("invalid chunk offset")
 	} else if size <= 0 {
 		size = v1.DefaultBlobChunkSize - chunkOffset
 	}
 	if size+chunkOffset > v1.DefaultBlobChunkSize {
-		return "", 0, errors.New("chunk size is too large")
+		return nil, 0, errors.New("chunk size is too large")
 	}
 	src, err := file.Open()
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 	MD5String, written, err := b.repo.BlobRepo().Write(path, chunkID, chunkOffset, size, version, src)
 	if err != nil {

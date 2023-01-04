@@ -13,6 +13,7 @@ import (
 func runSessionCleaner() {
 	log.Info("Starting session cleaner")
 	err := server.BlobSessionManager.SetTimeOut(time.Second * 60) // TODO: make this configurable
+	server.BlobSessionManager.HealthKeeper().Start()
 	if err != nil {
 		return
 	}
@@ -24,16 +25,18 @@ func runSessionCleaner() {
 			}
 			log.Debugln("trigger clean, active sessions: ", server.BlobSessionManager.ListSessions())
 
-			time.Sleep(time.Second * 30) // TODO: make this configurable
+			time.Sleep(time.Second * 3) // TODO: make this configurable
 		}
 	}()
 }
 
 func runErrorHandler() {
+	//TODO: implement error handler
 
 }
 
 func runAlivenessChecker() {
+	//TODO: implement aliveness checker
 
 }
 
@@ -48,7 +51,6 @@ func MainLoop(cmd *cobra.Command, args []string) {
 		server.GlobalServerDesc = &desc //  设定全局Option
 		server.BlobDataServerManger = server.NewDataServerManager(server.GlobalServerDesc)
 		server.BlobSessionManager = server.NewSessionManager()
-		server.BlobLockManager = server.NewLockManager(server.GlobalServerDesc.Opt.Volume)
 	}
 
 	runRegistration()

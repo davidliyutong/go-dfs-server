@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 )
 
 type blobRepo struct {
@@ -66,7 +67,7 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 
 			session.SyncMutex().RLock()
 			defer session.SyncMutex().RUnlock()
-			session.ExtendTo(utils.GetChunkID(session.GetBlobMetaData().Size))
+			session.ExtendToID(utils.GetChunkID(session.GetBlobMetaData().Size))
 
 			return session.GetBlobMetaData(), err
 		}
@@ -108,9 +109,11 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 				return v1.BlobMetaData{}, session.SetErrorClose(errors.New("no enough data server available"))
 			}
 			clientErrors := make([]error, len(clients))
+			createStatus := make([]string, len(clients))
 
-			wg := sync.WaitGroup{}
+			wg := new(sync.WaitGroup)
 			wg.Add(len(clients) + 1)
+			var numSuccessCreation int64 = 0
 			for idx, client := range clients {
 				idx := idx
 				client := client
@@ -119,8 +122,11 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 					err := client.(v12.DataServerClient).BlobCreateFile(*session.Path())
 					if err != nil {
 						clientErrors[idx] = err
+						createStatus[idx] = ""
 					} else {
 						clientErrors[idx] = nil
+						createStatus[idx] = client.(v12.DataServerClient).GetUUID()
+						atomic.AddInt64(&numSuccessCreation, 1)
 					}
 
 				}()
@@ -137,19 +143,33 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 			wg.Wait()
 
 			if utils.HasError(clientErrors) {
-				for _, err := range clientErrors {
-					_ = session.SetErrorClose(err)
+				if numSuccessCreation >= server.NameServerNumOfReplicas {
+					_ = session.SetError(errors.New("some dataserver is offline"))
+				} else {
+					for _, err := range clientErrors {
+						_ = session.SetErrorClose(err)
+					}
+					return v1.BlobMetaData{}, session.SetErrorClose(errors.New("create file failed, dataserver error"))
 				}
-				return v1.BlobMetaData{}, session.SetErrorClose(errors.New("create file failed, dataserver error"))
 			} else if err1 != nil || err2 != nil {
 				_ = session.SetErrorClose(err1)
 				_ = session.SetErrorClose(err2)
 				return v1.BlobMetaData{}, session.SetErrorClose(errors.New("create file failed, local error"))
 			}
 
-			clientErrors = make([]error, server.NameServerNumOfReplicas)
-			clients = utils.SelectRandomNFromArray(r.DataServerManager().GetAllClients(), server.NameServerNumOfReplicas)
+			filePresence := utils.FilterEmptyString(createStatus)
+			_ = session.SetFilePresence(filePresence)
+
+			presentClients, err := r.DataServerManager().GetClients(filePresence)
+			if err != nil {
+				return v1.BlobMetaData{}, session.SetErrorClose(err)
+			}
+
+			clients = utils.SelectRandomNFromArray(presentClients, server.NameServerNumOfReplicas)
+			clientErrors = make([]error, len(clients))
 			newDistribution := make([]string, len(clients))
+			newChecksums := make([]string, len(clients))
+			var numFailed int64 = 0
 			wg.Add(len(clients))
 			for idx, client := range clients {
 				idx := idx
@@ -158,20 +178,32 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 					defer wg.Done()
 					err = client.(v12.DataServerClient).BlobCreateChunk(*session.Path(), int64(0))
 					newDistribution[idx] = client.(v12.DataServerClient).GetUUID()
+					newChecksums[idx], _ = utils.GetBufferMD5(nil)
 					clientErrors[idx] = err
+					if err != nil {
+						atomic.AddInt64(&numFailed, 1)
+					}
 				}()
 			}
 			wg.Wait()
 
 			if utils.HasError(clientErrors) {
-				_ = session.SetErrorClose(utils.GetFirstError(clientErrors))
+				if numFailed <= 1 {
+					_ = session.SetError(utils.GetFirstError(clientErrors))
+				} else {
+					_ = session.SetErrorClose(utils.GetFirstError(clientErrors))
+				}
 			}
-			session.ExtendTo(0)
+			session.ExtendToID(0)
 			newMeta := session.GetBlobMetaData()
-			checksum, _ := utils.GetBufferMD5(nil)
-			newMeta.ChunkChecksums[0] = checksum
+			newMeta.ChunkChecksums[0] = newChecksums
 			newMeta.ChunkDistribution[0] = newDistribution
 			session.SetBlobMetaData(newMeta)
+
+			err = session.DumpBlobMetaData()
+			if err != nil {
+				return v1.BlobMetaData{}, session.SetErrorClose(err)
+			}
 			return session.GetBlobMetaData(), nil
 		default:
 			return v1.BlobMetaData{}, errors.New("invalid mode")
@@ -181,7 +213,7 @@ func (r *blobRepo) Open(path string, mode int) (v1.BlobMetaData, error) {
 
 func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, error) {
 	if !utils.IsValidBlobMetaData(src) {
-		return v1.BlobMetaData{}, errors.New("invalid blob meta data")
+		return v1.BlobMetaData{}, errors.New("blob corrupted")
 	}
 
 	var session server.Session
@@ -190,6 +222,8 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 	if err != nil {
 		return src, errors.New("session not found")
 	} else {
+		session.Add(1)
+		defer session.Done()
 
 		err = session.Open()
 		defer func(session server.Session) {
@@ -217,9 +251,18 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 			srcNChunks := len(src.ChunkChecksums)
 			clientErrors := make([]error, server.NameServerNumOfReplicas)
 			wg := new(sync.WaitGroup)
+
+			filePresence, _ := session.GetFilePresence()
+			presentClients, err := r.DataServerManager().GetClients(filePresence)
+			if err != nil {
+				return dst, session.SetErrorClose(err)
+			}
+
 			for newChunkID := dstNChunks; newChunkID < srcNChunks; newChunkID++ {
-				clients := utils.SelectRandomNFromArray(r.DataServerManager().GetAllClients(), server.NameServerNumOfReplicas)
+				clients := utils.SelectRandomNFromArray(presentClients, server.NameServerNumOfReplicas)
 				newDistribution := make([]string, len(clients))
+				newChecksums := make([]string, len(clients))
+				var numFailed int64 = 0
 				wg.Add(len(clients))
 				for idx, client := range clients {
 					idx := idx
@@ -228,17 +271,26 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 						defer wg.Done()
 						err = client.(v12.DataServerClient).BlobCreateChunk(*session.Path(), int64(newChunkID))
 						newDistribution[idx] = client.(v12.DataServerClient).GetUUID()
+						newChecksums[idx], _ = utils.GetBufferMD5(nil)
 						clientErrors[idx] = err
+						if err != nil {
+							atomic.AddInt64(&numFailed, 1)
+						}
 					}()
 				}
 				wg.Wait()
 
 				if utils.HasError(clientErrors) {
-					_ = session.SetErrorClose(utils.GetFirstError(clientErrors))
+					if numFailed <= 1 {
+						_ = session.SetError(utils.GetFirstError(clientErrors))
+					} else {
+						_ = session.SetErrorClose(utils.GetFirstError(clientErrors))
+					}
 				}
 				src.ChunkDistribution[newChunkID] = newDistribution
+				src.ChunkChecksums[newChunkID] = newChecksums
 			}
-			session.ExtendTo(int64(srcNChunks))
+			session.ExtendToID(int64(srcNChunks))
 
 		case len(dst.ChunkChecksums) > len(src.ChunkChecksums):
 			// shrink the file
@@ -249,14 +301,13 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 			for oldChunkID := srcNChunks + 1; oldChunkID <= dstNChunks; oldChunkID++ {
 				clientUUIDs, err := session.GetChunkDistribution(int64(oldChunkID))
 				if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-					//return v1.BlobMetaData{}, errors.New("current chunk is not present")
+					_ = session.SetError(err)
 					continue
 				}
 
 				clients, err := r.DataServerManager().GetClients(clientUUIDs)
 				if err != nil {
-					//return v1.BlobMetaData{}, errors.New("cannot get related data server")
-					_ = session.SetErrorClose(err)
+					_ = session.SetError(err)
 					continue
 				}
 
@@ -277,7 +328,7 @@ func (r *blobRepo) Sync(path string, src v1.BlobMetaData) (v1.BlobMetaData, erro
 					_ = session.SetErrorClose(utils.GetFirstError(clientErrors))
 				}
 			}
-			session.TruncateTo(int64(srcNChunks))
+			session.TruncateToID(int64(srcNChunks))
 
 		case len(dst.ChunkChecksums) == len(src.ChunkChecksums):
 			// TODO: check if the file is modified src and dst should only have Version as difference
@@ -340,10 +391,10 @@ func (r *blobRepo) Read(buffer io.Writer, path string, chunkID int64, chunkOffse
 
 }
 
-func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, data io.ReadCloser) (string, int64, error) {
+func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, data io.ReadCloser) ([]string, int64, error) {
 	session, err := r.sessions.Get(path)
 	if err != nil {
-		return "", 0, errors.New("session not found")
+		return nil, 0, errors.New("session not found")
 	}
 	session.Add(1)
 	defer session.Done()
@@ -352,7 +403,7 @@ func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int
 
 	err = session.LockChunk(chunkID)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 	defer func(session server.Session, chunkID int64) {
 		err := session.UnlockChunk(chunkID)
@@ -363,32 +414,46 @@ func (r *blobRepo) Write(path string, chunkID int64, chunkOffset int64, size int
 
 	clientUUIDs, err := session.GetChunkDistribution(chunkID)
 	if err != nil || len(clientUUIDs) == 0 || clientUUIDs == nil {
-		return "", 0, session.SetErrorClose(errors.New("current chunk is not present"))
+		return nil, 0, session.SetErrorClose(errors.New("current chunk is not present"))
 	}
 
 	clients, err := r.DataServerManager().GetClients(clientUUIDs)
 	if err != nil {
-		return "", 0, session.SetErrorClose(err)
+		return nil, 0, session.SetErrorClose(err)
 	}
 
 	MD5Strings := make([]string, len(clients))
 	numWritten := make([]int64, len(clients))
 	buf, err := io.ReadAll(data)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
+	var numFailed int64 = 0
+	wg := new(sync.WaitGroup)
+	wg.Add(len(clients))
 	for idx, client := range clients {
-
-		MD5Strings[idx], numWritten[idx], err = client.(v12.DataServerClient).BlobWriteChunk(*session.Path(), chunkID, chunkOffset, size, version, bytes.NewBuffer(buf))
-		if err != nil {
-			return "", 0, session.SetErrorClose(err)
-		}
+		idx := idx
+		client := client
+		go func() {
+			defer wg.Done()
+			MD5Strings[idx], numWritten[idx], err = client.(v12.DataServerClient).BlobWriteChunk(*session.Path(), chunkID, chunkOffset, size, version, bytes.NewBuffer(buf))
+			if err != nil {
+				atomic.AddInt64(&numFailed, 1)
+			}
+		}()
 	}
-	if utils.IsSameString(MD5Strings) && utils.IsSameInt64(numWritten) {
-		return MD5Strings[0], numWritten[0], nil
+	wg.Wait()
+
+	if numFailed == 0 && utils.IsSameString(MD5Strings) && utils.IsSameInt64(numWritten) {
+		return MD5Strings, numWritten[0], nil
 	} else {
-		return "", 0, errors.New("not all servers have the same checksum")
+		if numFailed <= 1 {
+			_ = session.SetError(errors.New("not all servers have the same checksum"))
+			return MD5Strings, numWritten[0], nil
+		} else {
+			return nil, 0, session.SetErrorClose(errors.New("not all servers have the same checksum"))
+		}
 	}
 
 }

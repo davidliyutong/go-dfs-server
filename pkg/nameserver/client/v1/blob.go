@@ -86,10 +86,10 @@ func (c *nameServerClient) blobRead(path string, chunkID int64, chunkOffset int6
 	return resp.Body, nil
 }
 
-func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int64, size int64, version int64, data io.Reader) (string, int, error) {
+func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int64, size int64, version int64, data io.Reader) ([]string, int, error) {
 	targetUrl, err := c.GetAPIUrl(server.APILayout.V1.Blob.Self, server.APILayout.V1.Blob.IO)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	buf := new(bytes.Buffer)
@@ -97,35 +97,35 @@ func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int
 	w1, _ := bw.CreateFormField("path")
 	_, err = w1.Write([]byte(path))
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	w2, _ := bw.CreateFormField("chunk_id")
 	_, err = w2.Write([]byte(strconv.FormatInt(chunkID, 10)))
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	w3, _ := bw.CreateFormField("chunk_offset")
 	_, err = w3.Write([]byte(strconv.FormatInt(chunkOffset, 10)))
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	w4, _ := bw.CreateFormField("size")
 	_, err = w4.Write([]byte(strconv.FormatInt(size, 10)))
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	w5, _ := bw.CreateFormField("version")
 	_, err = w5.Write([]byte(strconv.FormatInt(version, 10)))
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	w6, _ := bw.CreateFormFile("file", fmt.Sprintf("%v.%v.%v.%v.%v", path, chunkID, chunkOffset, size, version))
@@ -137,7 +137,7 @@ func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int
 
 	err = bw.Close()
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	req, _ := http.NewRequest("POST", targetUrl, buf)
@@ -148,7 +148,7 @@ func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -161,12 +161,12 @@ func (c *nameServerClient) blobWrite(path string, chunkID int64, chunkOffset int
 	var result v1.WriteResponse
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	} else {
 		if result.Code != http.StatusOK {
-			return result.Checksum, result.Written, errors.New(result.Msg)
+			return result.Checksums, result.Written, errors.New(result.Msg)
 		} else {
-			return result.Checksum, result.Written, nil
+			return result.Checksums, result.Written, nil
 		}
 	}
 }

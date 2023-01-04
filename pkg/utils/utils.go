@@ -378,3 +378,13 @@ func IsSameInt64(s []int64) bool {
 func IsNewerThan(src v1.BlobMetaData, dst v1.BlobMetaData) bool {
 	return src.Version > dst.Version
 }
+
+func FilterEmptyString(l []string) []string {
+	for i := 0; i < len(l); i++ {
+		if l[i] == "" {
+			l = append(l[:i], l[i+1:]...)
+			i--
+		}
+	}
+	return l
+}

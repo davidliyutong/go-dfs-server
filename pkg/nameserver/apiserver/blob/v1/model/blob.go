@@ -16,8 +16,9 @@ type BlobMetaData struct {
 	BaseName          string     `json:"base_name"`
 	Version           int64      `json:"version"`
 	Size              int64      `json:"size"`
+	Presence          []string   `json:"presence"`
 	Versions          []int64    `json:"versions"`
-	ChunkChecksums    []string   `json:"chunk_checksums"`
+	ChunkChecksums    [][]string `json:"chunk_checksums"`
 	ChunkDistribution [][]string `json:"chunk_distribution"`
 }
 
@@ -32,7 +33,21 @@ func (o *BlobMetaData) GetChunkDistribution(chunkID int64) ([]string, error) {
 	if chunkID >= int64(len(o.ChunkDistribution)) {
 		return nil, errors.New("blob corrupted")
 	}
-	return o.ChunkDistribution[chunkID], nil
+	// only get client with non-empty checksum
+	result := make([]string, 0)
+	for idx, v := range o.ChunkChecksums[chunkID] {
+		if v != "" {
+			result = append(result, o.ChunkDistribution[chunkID][idx])
+		}
+	}
+	return result, nil
+}
+
+func (o *BlobMetaData) GetFilePresence() ([]string, error) {
+	if o.Presence == nil {
+		return nil, errors.New("blob corrupted")
+	}
+	return o.Presence, nil
 }
 
 func (o *BlobMetaData) ExtendTo(chunkID int64) {
@@ -40,7 +55,7 @@ func (o *BlobMetaData) ExtendTo(chunkID int64) {
 		if chunkID >= int64(len(o.ChunkDistribution)) {
 			o.ChunkDistribution = append(o.ChunkDistribution, make([]string, 0))
 		} else if chunkID >= int64(len(o.ChunkChecksums)) {
-			o.ChunkChecksums = append(o.ChunkChecksums, "")
+			o.ChunkChecksums = append(o.ChunkChecksums, make([]string, 0))
 		} else if chunkID >= int64(len(o.Versions)) {
 			o.Versions = append(o.Versions, 0)
 		} else {
@@ -94,9 +109,11 @@ func NewBlobMetaData(blobType string, baseName string) BlobMetaData {
 	return BlobMetaData{
 		Type:              blobType,
 		BaseName:          baseName,
+		Version:           9,
 		Size:              0,
+		Presence:          make([]string, 0),
 		Versions:          make([]int64, 0),
-		ChunkChecksums:    make([]string, 0),
+		ChunkChecksums:    make([][]string, 0),
 		ChunkDistribution: make([][]string, 0),
 	}
 }

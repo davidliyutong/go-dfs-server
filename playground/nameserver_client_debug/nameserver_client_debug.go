@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	v12 "go-dfs-server/pkg/nameserver/apiserver/blob/v1/model"
@@ -134,6 +135,12 @@ func testClientReadFile() {
 func testClientRm() {
 	cli := v1.NewNameServerClient(token, "192.168.105.131", 27903, false)
 	err := cli.BlobRm("test.file2", false)
+
+	if err != nil {
+		log.Errorln(err)
+	}
+
+	err = cli.BlobRm("test.file", false)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -141,13 +148,26 @@ func testClientRm() {
 	log.Infoln("done")
 }
 
+func testClientInspectFile() {
+	cli := v1.NewNameServerClient(token, "192.168.105.131", 27903, false)
+	handle, err := cli.Open("test.file2", os.O_RDONLY)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+
+	buf, err := json.MarshalIndent(handle.Blob(), "", "    ")
+	fmt.Println(string(buf))
+}
+
 func main() {
 	log.SetLevel(log.DebugLevel)
 	//testClientOpen()
-	//testClientRm()
-	//testClientWriteString()
-	//testClientReadString()
-	//testClientWriteFile()
+	testClientRm()
+	testClientWriteString()
+	testClientReadString()
+	testClientWriteFile()
 	testClientReadFile()
+	testClientInspectFile()
 
 }

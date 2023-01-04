@@ -15,10 +15,10 @@ type WriteRequest struct {
 }
 
 type WriteResponse struct {
-	Code     int64  `form:"code" json:"code"`
-	Msg      string `form:"msg" json:"msg"`
-	Checksum string `form:"md5" json:"md5"`
-	Written  int    `form:"written" json:"written"`
+	Code      int64    `form:"code" json:"code"`
+	Msg       string   `form:"msg" json:"msg"`
+	Checksums []string `form:"checksums" json:"checksums"`
+	Written   int      `form:"written" json:"written"`
 }
 
 func (c2 controller) Write(c *gin.Context) {
@@ -36,11 +36,11 @@ func (c2 controller) Write(c *gin.Context) {
 			if err != nil {
 				c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 			} else {
-				checksum, size, err := c2.srv.NewBlobService().Write(request.Path, request.ChunkID, request.ChunkOffset, request.Size, request.Version, file)
+				checksums, size, err := c2.srv.NewBlobService().Write(request.Path, request.ChunkID, request.ChunkOffset, request.Size, request.Version, file)
 				if err != nil {
 					c.IndentedJSON(http.StatusInternalServerError, WriteResponse{Code: http.StatusInternalServerError, Msg: err.Error()})
 				} else {
-					c.IndentedJSON(http.StatusOK, WriteResponse{Code: http.StatusOK, Msg: "", Checksum: checksum, Written: int(size)})
+					c.IndentedJSON(http.StatusOK, WriteResponse{Code: http.StatusOK, Msg: "", Checksums: checksums, Written: int(size)})
 				}
 			}
 		}

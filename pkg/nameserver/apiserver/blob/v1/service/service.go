@@ -15,7 +15,7 @@ type BlobService interface {
 	Read(path string, chunkID int64, chunkOffset int64, size int64, c *gin.Context) (int64, error)
 	Rm(path string, recursive bool) error
 	Rmdir(path string) error
-	Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, file *multipart.FileHeader) (string, int64, error)
+	Write(path string, chunkID int64, chunkOffset int64, size int64, version int64, file *multipart.FileHeader) ([]string, int64, error)
 }
 
 type blobService struct {

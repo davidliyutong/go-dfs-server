@@ -17,7 +17,7 @@ type WriteChunkRequest struct {
 type WriteChunkResponse struct {
 	Code     int64  `form:"code" json:"code"`
 	Msg      string `form:"msg" json:"msg"`
-	Checksum string `form:"md5" json:"md5"`
+	Checksum string `form:"checksum" json:"checksum"`
 	Written  int64  `form:"written" json:"written"`
 }
 

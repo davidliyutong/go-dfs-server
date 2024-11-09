@@ -66,7 +66,7 @@ demo: demo.create
 
 .PHONY: demo.start
  demo.start: demo.create
-	$(eval TAG := $(VERSION)-$(GOOS)-$(GOARCH))
+	$(eval TAG := $(shell git describe --tags --abbrev=0)-$(GOOS)-$(GOARCH))
 	$(eval N_SERVERS ?= 4)
 	@bash ./scripts/launch_all_servers.sh $(DEMO_DATA_DIR) $(TAG) $(N_SERVERS) dfs
 

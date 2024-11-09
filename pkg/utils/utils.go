@@ -138,13 +138,13 @@ func DumpOption(opt interface{}, outputPath string, overwrite bool) {
 			log.Errorln("cannot create directory", parentPath)
 			log.Exit(1)
 		}
-	}
-
-	if os.IsPermission(err) || fileInfo.Mode() != 0700 {
-		err = os.Chmod(parentPath, 0700)
-		if err != nil {
-			log.Errorln("cannot read director", parentPath)
-			log.Exit(1)
+	} else {
+		if os.IsPermission(err) || fileInfo.Mode() != 0700 {
+			err = os.Chmod(parentPath, 0700)
+			if err != nil {
+				log.Errorln("cannot read director", parentPath)
+				log.Exit(1)
+			}
 		}
 	}
 
